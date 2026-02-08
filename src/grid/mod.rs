@@ -1,5 +1,6 @@
 mod adjacency;
 mod base;
+mod data;
 mod index;
 mod mask;
 mod point;

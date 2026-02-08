@@ -4,6 +4,7 @@ use std::str::FromStr;
 use collect_failable::TryFromIterator;
 
 use crate::err::{Discontiguous, ShapePatternError};
+use crate::grid::data::GridData;
 use crate::num::GridIndexU64;
 use crate::{Adjacency, Cardinal, Grid, GridMask, GridRect, GridVector};
 
@@ -182,6 +183,14 @@ impl<A: Adjacency> TryFrom<GridMask> for GridShape<A> {
         // Mask is contiguous iff connected region equals original mask
         let connected = mask.connected::<A>(seed);
         (connected == mask).then_some(Self(mask, PhantomData)).ok_or(Discontiguous(mask))
+    }
+}
+
+impl<A: Adjacency> TryFrom<u64> for GridShape<A> {
+    type Error = Discontiguous;
+
+    fn try_from(mask: u64) -> Result<Self, Self::Error> {
+        GridMask::from(mask).try_into()
     }
 }
 

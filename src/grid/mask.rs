@@ -16,6 +16,8 @@ use crate::num::{BitIndexIter, GridIndexU64, GridPos, SetBitsIter};
 use crate::{Adjacency, Grid, GridPoint, GridRect, GridSize, GridVector};
 
 /// An immutable mask of cells on a 8x8 grid.
+///
+/// Generic over the backing storage type `T`, which defaults to `u64`.
 #[derive(
     Debug,
     Copy,
@@ -24,17 +26,23 @@ use crate::{Adjacency, Grid, GridPoint, GridRect, GridSize, GridVector};
     Eq,
     Default,
     Hash,
+    derive_more::From,
     derive_more::BitAnd,
     derive_more::BitAndAssign,
     derive_more::BitOr,
     derive_more::BitOrAssign,
     derive_more::BitXor,
+    derive_more::BitXorAssign,
     derive_more::Not,
-    derive_more::From,
-    derive_more::Into,
-    derive_more::Constructor,
 )]
-pub struct GridMask64(pub u64);
+pub struct GridMask64<T = u64>(pub T);
+
+impl<T> GridMask64<T> {
+    /// Creates a new [`GridMask64`] from a value.
+    pub const fn new(value: T) -> Self {
+        Self(value)
+    }
+}
 
 impl GridMask64 {
     const COLS_U32: u32 = <Self as Grid>::COLS as u32;
@@ -383,7 +391,7 @@ impl GridMask64 {
     }
 }
 
-impl Grid for GridMask64 {
+impl Grid for GridMask64<u64> {
     type Backing = u64;
     type Idx = GridIndexU64;
 
@@ -478,12 +486,12 @@ impl Grid for GridMask64 {
 /// An iterator over all cells of a [`GridMask64`].
 #[derive(Debug, Clone)]
 pub struct Cells {
-    mask: GridMask64,
+    mask: GridMask64<u64>,
     iter: BitIndexIter,
 }
 
 impl Cells {
-    const fn new(mask: GridMask64) -> Self {
+    const fn new(mask: GridMask64<u64>) -> Self {
         Self { mask, iter: BitIndexIter::new() }
     }
 }
@@ -514,7 +522,7 @@ impl std::iter::FusedIterator for Cells {}
 pub struct Points(SetBitsIter);
 
 impl Points {
-    fn new(mask: GridMask64) -> Self {
+    fn new(mask: GridMask64<u64>) -> Self {
         Self(GridIndexU64::iter_set_bits(mask.0))
     }
 }
@@ -540,13 +548,13 @@ impl DoubleEndedIterator for Points {
 impl ExactSizeIterator for Points {}
 impl std::iter::FusedIterator for Points {}
 
-impl<I: Into<Self>> FromIterator<I> for GridMask64 {
+impl<I: Into<Self>> FromIterator<I> for GridMask64<u64> {
     fn from_iter<T: IntoIterator<Item = I>>(iter: T) -> Self {
         iter.into_iter().map_into().fold(Self::EMPTY, |mask, item| mask | item)
     }
 }
 
-impl IntoIterator for GridMask64 {
+impl IntoIterator for GridMask64<u64> {
     type Item = GridPoint;
     type IntoIter = Points;
 
@@ -555,7 +563,7 @@ impl IntoIterator for GridMask64 {
     }
 }
 
-impl From<GridRect> for GridMask64 {
+impl From<GridRect> for GridMask64<u64> {
     fn from(rect: GridRect) -> Self {
         let (x2, y2): (GridIndexU64, _) = rect.bottom_right().into();
         let (x1, y1): (GridIndexU64, _) = rect.point().into();
@@ -570,19 +578,19 @@ impl From<GridRect> for GridMask64 {
     }
 }
 
-impl From<GridIndexU64> for GridMask64 {
+impl From<GridIndexU64> for GridMask64<u64> {
     fn from(idx: GridIndexU64) -> Self {
         Self(1u64 << idx.get())
     }
 }
 
-impl From<GridPoint> for GridMask64 {
+impl From<GridPoint> for GridMask64<u64> {
     fn from(pos: GridPoint) -> Self {
         Self(1u64 << pos.0.get())
     }
 }
 
-impl From<[bool; 64]> for GridMask64 {
+impl From<[bool; 64]> for GridMask64<u64> {
     fn from(bools: [bool; 64]) -> Self {
         #[expect(clippy::cast_possible_truncation, reason = "i is always <= 63")]
         bools
@@ -596,7 +604,7 @@ impl From<[bool; 64]> for GridMask64 {
     }
 }
 
-impl FromStr for GridMask64 {
+impl FromStr for GridMask64<u64> {
     type Err = PatternError;
 
     /// Parses a string pattern into a [`GridMask64`].
