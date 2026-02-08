@@ -7,6 +7,8 @@ repository = "https://github.com/MaxMahem/grid_mask"
 license = "MIT OR Apache-2.0"
 authors = [ "Austin Stanley <MaxTMahem@gmail.com>" ]
 readme = "README.md"
+keywords = ["grid", "mask", "bitboard", "shape"]
+categories = ["data-structures"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -16,6 +18,7 @@ collect_failable = { version = "0.18.0", default-features = false }
 derive_more = { version = "2.1.1", default-features = false, features = ["add", "add_assign", "constructor", "from", "into", "not", "display", "as_ref", "deref", "mul"] }
 fluent_result = { version = "0.10.1", default-features = false }
 itertools = { version = "0.14.0", default-features = false }
+num-traits = "0.2.19"
 sealed = "0.6.0"
 size_hinter = "0.4.1"
 tap = "1.0.1"

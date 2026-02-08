@@ -2,6 +2,8 @@
 #![warn(clippy::pedantic, clippy::cargo, clippy::nursery)]
 #![warn(missing_docs, missing_debug_implementations)]
 #![allow(clippy::match_bool, clippy::single_match_else)]
+// TODO: remove this
+#![allow(dead_code)]
 
 #[doc(hidden)]
 pub mod ext;
@@ -14,10 +16,11 @@ pub mod num;
 /// crate Error types.
 pub mod err;
 
-/// An iterator over the cells of a [`GridMask`].
+/// An iterator over the cells of a [`GridMask64`].
 pub use grid::Cells;
-/// An iterator over the points of a [`GridMask`].
+/// An iterator over the points of a [`GridMask64`].
 pub use grid::Points;
 pub use grid::{
-    Adjacency, Cardinal, Grid, GridIndex, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector, Octile,
+    Adjacency, Cardinal, Grid, GridIndex, GridMask, GridMask64, GridPoint, GridRect, GridShape, GridSize, GridVector,
+    Octile,
 };

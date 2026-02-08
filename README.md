@@ -1,4 +1,4 @@
-# grid_mask
+# `grid_mask`
 
 [![Build](https://github.com/MaxMahem/grid_mask/actions/workflows/build.yml/badge.svg)](https://github.com/MaxMahem/grid_mask/actions/workflows/build.yml)
 [![Docs](https://github.com/MaxMahem/grid_mask/actions/workflows/docs.yml/badge.svg)](https://MaxMahem.github.io/grid_mask/grid_mask/index.html)

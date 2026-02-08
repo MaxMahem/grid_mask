@@ -1,7 +1,7 @@
 use std::ops::{RangeFrom, RangeInclusive, RangeTo};
 
 use crate::ext::Bound;
-use crate::num::BitIndexU64;
+use crate::num::GridIndexU64;
 
 /// Returns a bitmask with the bits in the given range set.
 pub trait FromBitRange<R> {
@@ -19,11 +19,11 @@ const fn generate_mask(start: u32, end: u32) -> u64 {
 
 // impl<T> FromBitRange<Range<T>> for u64
 // where
-//     T: Into<BitIndexU64> + BoundedValue,
+//     T: Into<GridIndexU64> + BoundedValue,
 // {
 //     fn from_bit_range(range: Range<T>) -> Self {
-//         let start: BitIndexU64 = range.start.into();
-//         let end: BitIndexU64 = range.end.into();
+//         let start: GridIndexU64 = range.start.into();
+//         let end: GridIndexU64 = range.end.into();
 
 //         generate_mask(start.into(), end.into())
 //     }
@@ -31,12 +31,12 @@ const fn generate_mask(start: u32, end: u32) -> u64 {
 
 impl<T> FromBitRange<RangeInclusive<T>> for u64
 where
-    T: Into<BitIndexU64> + Bound,
+    T: Into<GridIndexU64> + Bound,
 {
     fn from_bit_range(range: RangeInclusive<T>) -> Self {
         let (start, end) = range.into_inner();
-        let start: BitIndexU64 = start.into();
-        let end: BitIndexU64 = end.into();
+        let start: GridIndexU64 = start.into();
+        let end: GridIndexU64 = end.into();
 
         generate_mask(start.into(), u32::from(end) + 1)
     }
@@ -44,11 +44,11 @@ where
 
 impl<T> FromBitRange<RangeFrom<T>> for u64
 where
-    T: Into<BitIndexU64> + Bound,
+    T: Into<GridIndexU64> + Bound,
 {
     fn from_bit_range(range: RangeFrom<T>) -> Self {
-        let start: BitIndexU64 = range.start.into();
-        let end: BitIndexU64 = T::MAX.into();
+        let start: GridIndexU64 = range.start.into();
+        let end: GridIndexU64 = T::MAX.into();
 
         generate_mask(start.into(), u32::from(end) + 1)
     }
@@ -56,11 +56,11 @@ where
 
 impl<T> FromBitRange<RangeTo<T>> for u64
 where
-    T: Into<BitIndexU64> + Bound,
+    T: Into<GridIndexU64> + Bound,
 {
     fn from_bit_range(range: RangeTo<T>) -> Self {
-        let start: BitIndexU64 = T::MIN.into();
-        let end: BitIndexU64 = range.end.into();
+        let start: GridIndexU64 = T::MIN.into();
+        let end: GridIndexU64 = range.end.into();
 
         generate_mask(start.into(), end.into())
     }
@@ -68,11 +68,11 @@ where
 
 // impl<T> FromBitRange<RangeToInclusive<T>> for u64
 // where
-//     T: Into<BitIndexU64> + BoundedValue,
+//     T: Into<GridIndexU64> + BoundedValue,
 // {
 //     fn from_bit_range(range: RangeToInclusive<T>) -> Self {
-//         let start: BitIndexU64 = T::MIN.into();
-//         let end: BitIndexU64 = range.end.into();
+//         let start: GridIndexU64 = T::MIN.into();
+//         let end: GridIndexU64 = range.end.into();
 
 //         generate_mask(start.into(), u32::from(end) + 1)
 //     }

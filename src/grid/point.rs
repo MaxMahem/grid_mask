@@ -4,32 +4,31 @@ use tap::{Conv, Pipe};
 use crate::GridVector;
 use crate::err::OutOfBounds;
 use crate::ext::Bound;
-use crate::num::{BitIndexIter, BitIndexU64, GridPos};
+use crate::num::{BitIndexIter, GridIndexU64, GridPos};
 
 /// A point in a 8x8 grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From, derive_more::Into, derive_more::Display)]
 #[display("({x}, {y})", x = self.x(), y = self.y())]
-pub struct GridPoint(pub BitIndexU64);
+pub struct GridPoint(pub GridIndexU64);
 
 impl GridPoint {
     /// The origin point `(0, 0)`.
-    pub const ORIGIN: Self = Self(BitIndexU64::MIN);
+    pub const ORIGIN: Self = Self(GridIndexU64::MIN);
     /// The maximum point `(7, 7)`.
-    pub const MAX: Self = Self(BitIndexU64::MAX);
+    pub const MAX: Self = Self(GridIndexU64::MAX);
 
     /// Creates a new [`GridPoint`] without bounds checking.
     ///
     /// The caller must ensure that `x` and `y` are within the range `0..=7`.
     #[must_use]
-    pub(crate) fn new_unchecked(x: u32, y: u32) -> Self {
+    pub(crate) fn new_unchecked(x: u8, y: u8) -> Self {
         debug_assert!(x <= 7, "x should be within 0..=7");
         debug_assert!(y <= 7, "y should be within 0..=7");
 
         let index = x + y * 8;
         debug_assert!(index <= 63, "index should be within 0..=63");
 
-        #[expect(clippy::cast_possible_truncation, reason = "index is within 0..=63")]
-        unsafe { BitIndexU64::new_unchecked(index as u8) }.pipe(Self)
+        unsafe { GridIndexU64::new_unchecked(index) }.pipe(Self)
     }
 
     /// Creates a new [`GridPoint`]
@@ -49,7 +48,7 @@ impl GridPoint {
     /// ```
     #[must_use]
     pub fn new(x: GridPos, y: GridPos) -> Self {
-        (x, y).conv::<BitIndexU64>().pipe(Self)
+        (x, y).conv::<GridIndexU64>().pipe(Self)
     }
 
     /// Tries to create a new [`GridPoint`].
@@ -114,7 +113,7 @@ impl GridPoint {
         assert!(X < 8, "x coordinate is out of bounds (must be < 8)");
         assert!(Y < 8, "y coordinate is out of bounds (must be < 8)");
 
-        let index = BitIndexU64::new(X + Y * 8).unwrap();
+        let index = GridIndexU64::new(X + Y * 8).unwrap();
         Self(index)
     }
 

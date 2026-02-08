@@ -4,12 +4,12 @@ use std::str::FromStr;
 use collect_failable::TryFromIterator;
 
 use crate::err::{Discontiguous, ShapePatternError};
-use crate::num::BitIndexU64;
-use crate::{Adjacency, Cardinal, GridMask, GridRect, GridVector};
+use crate::num::GridIndexU64;
+use crate::{Adjacency, Cardinal, Grid, GridMask, GridRect, GridVector};
 
 /// A contiguous shape on an 8x8 grid.
 ///
-/// A `GridShape` is a [`GridMask`] that guarantees that all set cells are
+/// A `GridShape` is a [`GridMask64`] that guarantees that all set cells are
 /// connected via the [`Adjacency`] strategy, `A`.
 ///
 /// # Type Parameters
@@ -19,7 +19,7 @@ use crate::{Adjacency, Cardinal, GridMask, GridRect, GridVector};
 /// # Examples
 ///
 /// ```rust
-/// # use grid_mask::{GridShape, GridMask, GridPoint, GridRect, GridSize};
+/// # use grid_mask::{Grid, GridShape, GridMask, GridPoint, GridRect, GridSize};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Create a shape from a rectangle (always contiguous)
 /// let shape: GridShape = GridRect::new(GridPoint::ORIGIN, (2, 2))?.into();
@@ -62,7 +62,7 @@ impl<A: Adjacency> GridShape<A> {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::GridShape;
+    /// # use grid_mask::{Grid, GridShape};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let pattern = "
     ///     . . . . . . . .
@@ -117,7 +117,7 @@ impl<A: Adjacency> GridShape<A> {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{GridShape, GridVector, Cardinal};
+    /// # use grid_mask::{Grid, GridShape, GridVector, Cardinal};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let shape = GridShape::<Cardinal>::FULL;
     ///
@@ -148,7 +148,7 @@ impl<A: Adjacency> GridShape<A> {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use grid_mask::{GridShape, GridMask, GridPoint, Cardinal, Octile};
+    /// # use grid_mask::{Grid, GridShape, GridMask, GridPoint, Cardinal, Octile};
     /// let shape: GridShape<Cardinal> = GridMask::from(GridPoint::ORIGIN).try_into()?;
     /// let shape2: GridShape<Octile> = shape.cast::<Octile>()?;
     /// # Ok(())
@@ -162,7 +162,7 @@ impl<A: Adjacency> GridShape<A> {
 impl<A: Adjacency> TryFrom<GridMask> for GridShape<A> {
     type Error = Discontiguous;
 
-    /// Creates a [`GridShape`] from a [`GridMask`] if the mask is contiguous.
+    /// Creates a [`GridShape`] from a [`GridMask64`] if the mask is contiguous.
     ///
     /// A mask is contiguous if all set cells are connected via the adjacency rule `Adj`.
     ///
@@ -177,7 +177,7 @@ impl<A: Adjacency> TryFrom<GridMask> for GridShape<A> {
     /// ```
     fn try_from(mask: GridMask) -> Result<Self, Self::Error> {
         // Find any set bit as seed
-        let seed = BitIndexU64::from_first_set(mask.0).ok_or(Discontiguous(mask))?;
+        let seed = GridIndexU64::from_first_set(mask.0).ok_or(Discontiguous(mask))?;
 
         // Mask is contiguous iff connected region equals original mask
         let connected = mask.connected::<A>(seed);
@@ -213,7 +213,7 @@ impl FromStr for GridShape {
     ///
     /// ```rust
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use grid_mask::GridShape;
+    /// # use grid_mask::{Grid, GridShape};
     /// let pattern = "
     ///     . . . . . . . .
     ///     . . . . . . . .

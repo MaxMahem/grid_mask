@@ -1,6 +1,6 @@
 use crate::err::Discontiguous;
 
-/// Errors that can occur when parsing a [`GridMask`] from a `str` pattern.
+/// Errors that can occur when parsing a [`Grid`](crate::Grid) from a `str` pattern.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum PatternError {
     /// The pattern contains more than 64 valid characters.
@@ -14,7 +14,7 @@ pub enum PatternError {
     InvalidChar(char),
 }
 
-/// Errors that can occur when parsing a [`GridShape`] from a `str` pattern.
+/// Errors that can occur when parsing a [`GridShape`](crate::GridShape) from a `str` pattern.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum ShapePatternError {
     /// An error that occurred while parsing the pattern.

@@ -4,14 +4,14 @@ use std::str::FromStr;
 use collect_failable::TryFromIterator;
 
 use crate::adjacency::{Adjacency, Cardinal};
-use crate::num::BitIndexU64;
+use crate::num::GridIndexU64;
 use crate::{Discontiguous, GridMask, GridPoint, GridSize, OutOfBounds};
 
 use crate::PatternError;
 
 /// A contiguous shape on an 8x8 grid.
 ///
-/// Unlike [`GridMask`], a `GridShape` guarantees that all set cells are
+/// Unlike [`GridMask64`], a `GridShape` guarantees that all set cells are
 /// connected via an [`Adjacency`] strategy.
 ///
 /// # Type Parameters
@@ -120,7 +120,7 @@ impl GridShape {
 impl<Adj: Adjacency> TryFrom<GridMask> for GridShape<Adj> {
     type Error = Discontiguous;
 
-    /// Creates a [`GridShape`] from a [`GridMask`] if the mask is contiguous.
+    /// Creates a [`GridShape`] from a [`GridMask64`] if the mask is contiguous.
     ///
     /// A mask is contiguous if all set cells are connected via the adjacency rule `Adj`.
     ///
@@ -135,7 +135,7 @@ impl<Adj: Adjacency> TryFrom<GridMask> for GridShape<Adj> {
     /// ```
     fn try_from(mask: GridMask) -> Result<Self, Self::Error> {
         // Find any set bit as seed
-        let seed = BitIndexU64::from_first_set(mask.0).ok_or(Discontiguous(mask))?;
+        let seed = GridIndexU64::from_first_set(mask.0).ok_or(Discontiguous(mask))?;
 
         // Mask is contiguous iff connected region equals original mask
         let connected = mask.connected::<Adj>(seed);

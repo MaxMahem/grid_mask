@@ -24,16 +24,11 @@ impl GridSize {
     ///
     /// The caller must ensure that `width` and `height` are within the range `1..8`
     #[must_use]
-    pub(crate) const fn new_unchecked(width: u32, height: u32) -> Self {
-        // Safety: width is within 1..=8
-        debug_assert!(width >= 1 && width <= 8, "width should be within 1..=8");
-        #[expect(clippy::cast_possible_truncation, reason = "width is within 1..=8")]
-        let width = unsafe { GridLen::new_unchecked(width as u8) };
-
-        // Safety: height is within 1..=8
-        debug_assert!(height >= 1 && height <= 8, "height should be within 1..=8");
-        #[expect(clippy::cast_possible_truncation, reason = "height is within 1..=8")]
-        let height = unsafe { GridLen::new_unchecked(height as u8) };
+    pub(crate) const fn new_unchecked(width: u8, height: u8) -> Self {
+        debug_assert!(width >= 1 && width <= 8, "Safety: width should be within 1..=8");
+        debug_assert!(height >= 1 && height <= 8, "Safety: height should be within 1..=8");
+        let width = unsafe { GridLen::new_unchecked(width) };
+        let height = unsafe { GridLen::new_unchecked(height) };
 
         Self { width, height }
     }
@@ -125,7 +120,8 @@ where
     Y: From<GridLen> + PartialEq,
 {
     fn eq(&self, other: &(X, Y)) -> bool {
-        let (x, y): (X, Y) = (*self).into();
+        let x = X::from(self.width);
+        let y = Y::from(self.height);
         x == other.0 && y == other.1
     }
 }

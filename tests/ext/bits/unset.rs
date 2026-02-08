@@ -1,5 +1,5 @@
 use grid_mask::ext::bits::UnsetBit;
-use grid_mask::num::BitIndexU64;
+use grid_mask::num::GridIndexU64;
 use std::num::NonZeroU64;
 
 const VAL_3_BITS: Option<NonZeroU64> = NonZeroU64::new(0b0101010);
@@ -9,8 +9,8 @@ const VAL_NO_MID_BIT: Option<NonZeroU64> = NonZeroU64::new(0b0100010);
 
 const VAL_1_BIT: Option<NonZeroU64> = NonZeroU64::new(0b0001000);
 
-const INDEX_MID: BitIndexU64 = BitIndexU64::const_new::<3>();
-const INDEX_UNSET: BitIndexU64 = BitIndexU64::const_new::<4>();
+const INDEX_MID: GridIndexU64 = GridIndexU64::const_new::<3>();
+const INDEX_UNSET: GridIndexU64 = GridIndexU64::const_new::<4>();
 
 use crate::macros::test_transform;
 

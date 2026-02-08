@@ -1,4 +1,4 @@
-use grid_mask::{Cardinal, GridMask, GridPoint, GridVector, Octile};
+use grid_mask::{Cardinal, Grid, GridMask, GridPoint, GridVector, Octile};
 use std::str::FromStr;
 
 use crate::macros::{test_ctor, test_foreach, test_iter, test_panic, test_property, test_transform};
@@ -189,11 +189,11 @@ mod from_bool_array {
 
 mod from_bit_index_u64 {
     use super::*;
-    use grid_mask::num::BitIndexU64;
+    use grid_mask::num::GridIndexU64;
 
-    test_ctor!(zero: GridMask::from(BitIndexU64::new(0).unwrap()) => ORIGIN_POINT_MASK);
-    test_ctor!(max: GridMask::from(BitIndexU64::new(63).unwrap()) => MAX_POINT_MASK);
-    test_ctor!(val: GridMask::from(BitIndexU64::new(36).unwrap()) => GridMask::new(1 << 36));
+    test_ctor!(zero: GridMask::from(GridIndexU64::new(0).unwrap()) => ORIGIN_POINT_MASK);
+    test_ctor!(max: GridMask::from(GridIndexU64::new(63).unwrap()) => MAX_POINT_MASK);
+    test_ctor!(val: GridMask::from(GridIndexU64::new(36).unwrap()) => GridMask::new(1 << 36));
 }
 
 mod from_grid_point {

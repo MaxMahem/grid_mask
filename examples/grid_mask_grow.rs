@@ -1,4 +1,4 @@
-use grid_mask::{Cardinal, GridMask};
+use grid_mask::{Cardinal, Grid, GridMask};
 
 fn main() {
     let crosses: GridMask = "
