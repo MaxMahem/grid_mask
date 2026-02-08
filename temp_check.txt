@@ -1,0 +1,37 @@
+﻿.
+    ///
+    /// # Arguments
+    ///
+    /// * `pattern` - The string pattern to parse.
+    /// * `set` - The character representing a set bit.
+    /// * `unset` - The character representing an unset bit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// * The pattern contains characters other than `set`, `unset`, or whitespace.
+    /// * The pattern contains too many or too few valid characters (must be exactly 64).
+    ///
+    /// # Panics
+    ///
+    /// Panics if:
+    /// * `set` is equal to `unset`
+    /// * `set` or `unset` are [whitespace](char::is_whitespace)
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use grid_mask::GridMask;
+    /// let pattern = "
+    ///     . . . . . . . .
+    ///     . . . . . . . .
+    ///     . . # # . . . .
+    ///     . . # # . . . .
+    ///     . . . . . . . .
+    ///     . . . . . . . .
+    ///     . . . . . . . .
+    ///     . . . . . . . .
+    /// ";
+    /// let mask = GridMask::from_pattern(pattern, '#', '.').expect("Valid pattern");
+    pub fn from_pattern<S: AsRef<str>>(pattern: S, set: char, unset: char) -> Result<Self, PatternError> {
+        assert!(set != unset, "
