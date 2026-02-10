@@ -16,11 +16,9 @@ pub mod num;
 /// crate Error types.
 pub mod err;
 
-/// An iterator over the cells of a [`GridMask64`].
+/// An iterator over the cells of a [`GridMask`].
 pub use grid::Cells;
-/// An iterator over the points of a [`GridMask64`].
+/// An iterator over the points of a [`GridMask`].
 pub use grid::Points;
-pub use grid::{
-    Adjacency, Cardinal, Grid, GridIndex, GridMask, GridMask64, GridPoint, GridRect, GridShape, GridSize, GridVector,
-    Octile,
-};
+pub use grid::{Adjacency, Cardinal, Octile};
+pub use grid::{GridDeltaU64, GridIndex, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};

@@ -11,9 +11,9 @@ use crate::err::PatternError;
 use crate::ext::NotWhitespace;
 use crate::ext::bits::{BitZeros, FromBitRange, OccupiedBitSpan};
 use crate::ext::range::RangeLength;
-use crate::grid::TryGridIndex;
-use crate::num::{BitIndexIter, GridIndexU64, GridPos, SetBitsIter};
-use crate::{Adjacency, Grid, GridPoint, GridRect, GridSize, GridVector};
+use crate::grid::{Cells, GridData, GridDataMut, GridDataValue, Points, Spaces};
+use crate::num::{BitIndexU8, BitIndexU64};
+use crate::{Adjacency, GridIndex, GridPoint, GridRect, GridSize, GridVector};
 
 /// An immutable mask of cells on a 8x8 grid.
 ///
@@ -34,112 +34,58 @@ use crate::{Adjacency, Grid, GridPoint, GridRect, GridSize, GridVector};
     derive_more::BitXor,
     derive_more::BitXorAssign,
     derive_more::Not,
+    // derive_more::Constructor,
 )]
-pub struct GridMask64<T = u64>(pub T);
+pub struct GridMask<T = u64>(pub(crate) T);
 
-impl<T> GridMask64<T> {
-    /// Creates a new [`GridMask64`] from a value.
+impl<T> GridMask<T> {
+    /// Creates a new [`GridMask`] from a value.
     pub const fn new(value: T) -> Self {
         Self(value)
     }
 }
 
-impl GridMask64 {
-    const COLS_U32: u32 = <Self as Grid>::COLS as u32;
+impl<T: GridData> GridMask<T> {
+    /// An empty mask.
+    pub const EMPTY: Self = Self(T::EMPTY);
+    /// A full mask.
+    pub const FULL: Self = Self(T::FULL);
 
-    /// A bitmask of the first column.
-    pub(crate) const COL_FIRST: u64 = 0x0101_0101_0101_0101;
+    /// The number of rows in the mask.
+    pub const ROWS: T::RowLen = T::ROWS;
+    /// The number of columns in the mask.
+    pub const COLS: T::ColLen = T::COLS;
 
-    /// Returns a new [`GridPoint`] with the cell at `pos` set.
-    ///
-    /// # Arguments
-    ///
-    /// * 'pos' - The position to set.
-    ///
-    /// # Type Parmeters
-    ///
-    /// * `Idx` - A type that can index a [`GridMask64`]
-    ///
-    /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridPoint};
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let point = GridPoint::try_new(1, 1)?;
-    ///
-    /// let mask = GridMask::EMPTY.set(point);
-    ///
-    /// assert_eq!(mask.index(point), true, "Should be set");
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[must_use]
-    pub fn set<Idx: TryGridIndex>(&self, pos: Idx) -> Self {
-        *self | pos.to_grid_mask()
+    delegate::delegate! {
+        to self.0 {
+            /// Returns the number of set cells.
+            pub fn count(&self) -> usize;
+            /// Returns the state of the cell at `index`.
+            pub fn index<Idx: GridIndex<T>>(&self, index: Idx) -> bool;
+        }
     }
 
-    /// Returns a new [`GridMask64`] with the cell at `pos` unset.
-    ///
-    /// # Arguments
-    ///
-    /// * 'pos' - The position to unset.
-    ///
-    /// # Type Parmeters
-    ///
-    /// * `Idx` - A type that can index a [`GridMask64`]
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridPoint};
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let point = GridPoint::try_new(1, 1)?;
-    ///
-    /// let mask = GridMask::FULL.unset(point);
-    ///
-    /// assert_eq!(mask.index(point), false, "Should be unset");
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Returns `true` if the mask is [`EMPTY`](Self::EMPTY).
     #[must_use]
-    pub fn unset<Idx: TryGridIndex>(&self, pos: Idx) -> Self {
-        *self & !pos.to_grid_mask()
+    pub fn is_empty(&self) -> bool {
+        self.0 == T::EMPTY
     }
 
-    /// Gets the value of the cell at `pos`
-    ///
-    /// # Arguments
-    ///
-    /// * 'pos' - The position to get.
-    ///
-    /// # Type Parmeters
-    ///
-    /// * `Idx` - A type that can index a [`GridMask64`]
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridPoint};
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let point = GridPoint::try_new(1, 1)?;
-    ///
-    /// assert_eq!(GridMask::FULL.index(point), true, "Should be set");
-    /// assert_eq!(GridMask::EMPTY.index(point), false, "Should be unset");
-    /// # Ok(())
-    /// # }
-    /// ```
+    /// Returns `true` if the mask is [`FULL`](Self::FULL).
     #[must_use]
-    pub fn index<Idx: TryGridIndex>(&self, pos: Idx) -> bool {
-        pos.try_to_index().is_ok_and(|index| (self.0 & (1 << index.get())) != 0)
+    pub fn is_full(&self) -> bool {
+        self.0 == T::FULL
     }
 
     /// Returns an iterator over all cells of the mask.
     ///
-    /// Iterates from the top-left cell (`(0, 0)`, least significant bit)
-    /// to the bottom-right cell (`(7, 7)`, most significant bit).
+    /// Iterates from the top-left cell (`(0, 0)`) to the bottom-right cell
+    /// (`(T::COLS - 1, T::ROWS - 1)`).
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Grid, GridMask};
+    /// # use grid_mask::GridMask;
     /// let mask = GridMask::new(0b101);
     ///
     /// let mut cells = mask.cells();
@@ -150,8 +96,113 @@ impl GridMask64 {
     /// assert_eq!(cells.nth(60), Some(false));
     /// ```
     #[must_use]
-    pub const fn cells(&self) -> Cells {
-        Cells::new(*self)
+    pub const fn cells(&self) -> Cells<'_, T> {
+        Cells::new(self)
+    }
+}
+
+impl<T: GridDataMut> GridMask<T> {
+    delegate::delegate! {
+        to self.0 {
+            /// Sets the cell at `index`.
+            pub fn set<Idx: GridIndex<T>>(&mut self, index: Idx);
+            /// Unsets the cell at `index`.
+            pub fn unset<Idx: GridIndex<T>>(&mut self, index: Idx);
+            /// Translates the mask by `delta` in place.
+            pub fn translate_mut(&mut self, delta: GridVector);
+            /// Negates all cells in the mask in place.
+            pub fn negate(&mut self);
+        }
+    }
+}
+
+impl<T: GridDataValue> GridMask<T> {
+    delegate::delegate! {
+        to self.0 {
+            /// Returns a new mask with the cell at `index` set.
+            #[must_use]
+            #[expr(Self($))]
+            pub fn with_set<Idx: GridIndex<T>>(&self, index: Idx) -> Self;
+
+            /// Returns a new mask with the cell at `index` unset.
+            #[must_use]
+            #[expr(Self($))]
+            pub fn with_unset<Idx: GridIndex<T>>(&self, index: Idx) -> Self;
+
+            /// Returns a new mask translated by `delta`.
+            #[must_use]
+            #[expr(Self($))]
+            pub fn translate(&self, delta: GridVector) -> Self;
+        }
+    }
+}
+
+impl GridMask<u64> {
+    /// A bitmask of the first column.
+    pub(crate) const COL_FIRST: u64 = 0x0101_0101_0101_0101;
+
+    /// Returns a [`GridMask`] of all points connected to `seed` within the current mask
+    /// using the provided [`Adjacency`].
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The starting point for the flood fill.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `A` - The [`Adjacency`] strategy to use.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # use grid_mask::{GridPoint, GridMask, GridRect, Cardinal};
+    /// let mask: GridMask = GridRect::new((0, 0), (2, 2))?.into();
+    /// let connected = mask.contiguous::<Cardinal>(GridPoint::ORIGIN);
+    /// assert_eq!(connected, mask);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn contiguous<A: Adjacency>(self, seed: impl Into<BitIndexU64>) -> Self {
+        match seed.into().conv::<Self>() & self {
+            connected if connected.is_empty() => Self::EMPTY,
+            mut connected => loop {
+                match A::connected(connected.0) & self.0 {
+                    grown if grown == connected.0 => break connected,
+                    grown => connected = Self(grown),
+                }
+            },
+        }
+    }
+
+    /// Returns a [`GridMask`] of all points connected to `seed` within the current mask
+    /// using the provided [`Adjacency`].
+    ///
+    /// # Arguments
+    ///
+    /// * `seed` - The starting point for the flood fill.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `A` - The [`Adjacency`] strategy to use.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # use grid_mask::{GridPoint, GridMask, GridRect, Cardinal};
+    /// let mask: GridMask = GridRect::new((0, 0), (2, 2))?.into();
+    /// let connected = mask.contiguous::<Cardinal>(GridPoint::ORIGIN);
+    /// assert_eq!(connected, mask);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn grow<A: Adjacency>(self) -> Self {
+        A::connected::<u64>(self.0).pipe(Self)
     }
 
     /// Returns an iterator over the positions of all set cells of the mask.
@@ -175,12 +226,32 @@ impl GridMask64 {
         Points::new(*self)
     }
 
+    /// Returns an iterator over the positions of all unset cells of the mask.
+    ///
+    /// Iterates from the top-left cell (`(0, 0)`, least significant bit)
+    /// to the bottom-right cell (`(7, 7)`, most significant bit).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use grid_mask::{GridMask, GridPoint};
+    /// let mask = GridMask::FULL.with_unset(GridPoint::ORIGIN);
+    /// let spaces: Vec<GridPoint> = mask.spaces().collect();
+    ///
+    /// assert_eq!(spaces.len(), 1);
+    /// assert_eq!(spaces[0], (0, 0));
+    /// ```
+    #[must_use]
+    pub fn spaces(&self) -> Spaces {
+        Spaces::new(*self)
+    }
+
     /// Returns a bitmask of the columns that are occupied in the mask.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridPoint};
+    /// # use grid_mask::{GridMask, GridPoint};
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// assert_eq!(GridMask::EMPTY.occupied_cols(), 0b0000_0000);
     /// assert_eq!(GridMask::FULL.occupied_cols(), 0b1111_1111);
@@ -203,7 +274,7 @@ impl GridMask64 {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Grid, GridMask};
+    /// # use grid_mask::GridMask;
     /// assert_eq!(GridMask::EMPTY.occupied_rows(), 0b0000_0000);
     /// assert_eq!(GridMask::FULL.occupied_rows(), 0b1111_1111);
     /// assert_eq!(GridMask::new(1 | 1 << 63).occupied_rows(), 0b1000_0001);
@@ -234,7 +305,7 @@ impl GridMask64 {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridRect};
+    /// # use grid_mask::{GridMask, GridRect};
     /// assert_eq!(GridMask::EMPTY.bounds(), None);
     /// assert_eq!(GridMask::FULL.bounds(), Some(GridRect::MAX));
     /// assert_eq!(GridMask::new(1 | 1 << 63).bounds(), Some(GridRect::MAX));
@@ -298,10 +369,10 @@ impl GridMask64 {
     /// ```
     #[must_use]
     pub fn is_contiguous<A: Adjacency>(&self) -> bool {
-        GridIndexU64::from_first_set(self.0).is_some_and(|seed| self.connected::<A>(seed) == *self)
+        BitIndexU64::from_first_set(self.0).is_some_and(|seed| self.contiguous::<A>(seed) == *self)
     }
 
-    /// Creates a [`GridMask64`] from a string pattern.
+    /// Creates a [`GridMask`] from a string pattern.
     ///
     /// The pattern must contain exactly 64 characters matching either `set` or `unset`,
     /// ignoring any whitespace.
@@ -383,178 +454,29 @@ impl GridMask64 {
     pub fn visualize(&self, set: char, unset: char) -> impl std::fmt::Display + '_ {
         let map_char = move |is_set: bool| if is_set { set } else { unset };
         std::fmt::from_fn(move |f| {
-            self.cells().map(map_char).enumerate().try_for_each(|(i, c)| match (i + 1) % (Self::ROWS as usize) == 0 {
-                true => writeln!(f, "{c}"),
-                false => write!(f, "{c}"),
+            self.cells().map(map_char).enumerate().try_for_each(|(i, c)| {
+                match (i + 1) % (Self::ROWS.conv::<usize>()) == 0 {
+                    true => writeln!(f, "{c}"),
+                    false => write!(f, "{c}"),
+                }
             })
         })
     }
 }
 
-impl Grid for GridMask64<u64> {
-    type Backing = u64;
-    type Idx = GridIndexU64;
-
-    const ROWS: u8 = 8;
-    const COLS: u8 = 8;
-    const EMPTY: Self = Self(0);
-    const FULL: Self = Self(!0);
-
-    fn count(&self) -> usize {
-        self.0.count_ones() as usize
-    }
-
-    /// Translates the mask by the given vector.
-    ///
-    /// Cells that are shifted out of bounds are discarded.
-    ///
-    /// # Arguments
-    ///
-    /// * `vector` - The vector to translate by.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use grid_mask::{Grid, GridMask, GridVector};
-    /// # use std::str::FromStr;
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let mask: GridMask = "
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . # # . . # # .
-    ///     . # # . . # # .
-    ///     . . . . . . . .
-    ///     . # . . . . # .
-    ///     . # # # # # # .
-    ///     . . . . . . . .
-    /// ".parse()?;
-    ///
-    /// let translated = mask.translate(GridVector::new(3, 1));
-    ///
-    /// let expected: GridMask = "
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . . . . # # . .
-    ///     . . . . # # . .
-    ///     . . . . . . . .
-    ///     . . . . # . . .
-    ///     . . . . # # # #
-    /// ".parse()?;
-    /// assert_eq!(translated, expected);
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn translate(&self, vector: GridVector) -> Self {
-        let mask_shifted_y = match vector.y {
-            dy @ 1..=7 => self.0 << (dy.unsigned_abs().conv::<u32>() * Self::COLS_U32),
-            dy @ -7..=-1 => self.0 >> (dy.unsigned_abs().conv::<u32>() * Self::COLS_U32),
-            0 => self.0,
-            _ => return Self::EMPTY,
-        };
-
-        match vector.x {
-            dx @ 1..=7 => {
-                let shift: u32 = dx.unsigned_abs().into();
-                let mask_shifted_x_y = mask_shifted_y << shift;
-
-                // Safety: shift is always <= 7, so it is always a valid GridPos
-                #[expect(clippy::cast_possible_truncation, reason = "shift is always <= 7")]
-                let shift_pos = unsafe { GridPos::new_unchecked(shift as u8) };
-
-                let col_mask = u64::from_bit_range(..shift_pos) * Self::COL_FIRST;
-
-                Self(mask_shifted_x_y & !col_mask)
-            }
-            dx @ -7..=-1 => {
-                let shift: u32 = dx.unsigned_abs().into();
-                let mask_shifted_x_y = mask_shifted_y >> shift;
-
-                #[expect(clippy::cast_possible_truncation, reason = "shift is always <= 7")]
-                let start_pos = unsafe { GridPos::new_unchecked(8 - shift as u8) };
-
-                let col_mask = u64::from_bit_range(start_pos..) * Self::COL_FIRST;
-
-                Self(mask_shifted_x_y & !col_mask)
-            }
-            0 => Self(mask_shifted_y),
-            _ => Self::EMPTY,
-        }
+impl From<GridMask<Self>> for u64 {
+    fn from(value: GridMask<Self>) -> Self {
+        value.0
     }
 }
 
-/// An iterator over all cells of a [`GridMask64`].
-#[derive(Debug, Clone)]
-pub struct Cells {
-    mask: GridMask64<u64>,
-    iter: BitIndexIter,
-}
-
-impl Cells {
-    const fn new(mask: GridMask64<u64>) -> Self {
-        Self { mask, iter: BitIndexIter::new() }
-    }
-}
-
-impl Iterator for Cells {
-    type Item = bool;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|i| self.mask.index(i))
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.iter.size_hint()
-    }
-}
-
-impl DoubleEndedIterator for Cells {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|i| self.mask.index(i))
-    }
-}
-
-impl ExactSizeIterator for Cells {}
-impl std::iter::FusedIterator for Cells {}
-
-/// An iterator over all set cells of a [`GridMask64`].
-#[derive(Debug, Clone)]
-pub struct Points(SetBitsIter);
-
-impl Points {
-    fn new(mask: GridMask64<u64>) -> Self {
-        Self(GridIndexU64::iter_set_bits(mask.0))
-    }
-}
-
-impl Iterator for Points {
-    type Item = GridPoint;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(GridPoint::from)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
-}
-
-impl DoubleEndedIterator for Points {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(GridPoint::from)
-    }
-}
-
-impl ExactSizeIterator for Points {}
-impl std::iter::FusedIterator for Points {}
-
-impl<I: Into<Self>> FromIterator<I> for GridMask64<u64> {
+impl<I: Into<Self>> FromIterator<I> for GridMask<u64> {
     fn from_iter<T: IntoIterator<Item = I>>(iter: T) -> Self {
         iter.into_iter().map_into().fold(Self::EMPTY, |mask, item| mask | item)
     }
 }
 
-impl IntoIterator for GridMask64<u64> {
+impl IntoIterator for GridMask<u64> {
     type Item = GridPoint;
     type IntoIter = Points;
 
@@ -563,34 +485,34 @@ impl IntoIterator for GridMask64<u64> {
     }
 }
 
-impl From<GridRect> for GridMask64<u64> {
+impl From<GridRect> for GridMask<u64> {
     fn from(rect: GridRect) -> Self {
-        let (x2, y2): (GridIndexU64, _) = rect.bottom_right().into();
-        let (x1, y1): (GridIndexU64, _) = rect.point().into();
+        let (x2, y2): (BitIndexU8, _) = rect.bottom_right().into();
+        let (x1, y1): (BitIndexU8, _) = rect.point().into();
 
-        let row_mask = u64::from_bit_range(x1..=x2);
+        let row_mask = u8::from_bit_range(x1..=x2);
 
         (y1..=y2)
             .map(|row: u8| row * Self::ROWS)
-            .map(|row_start| row_mask << row_start)
+            .map(|row_start| u64::from(row_mask) << row_start)
             .fold(0u64, std::ops::BitOr::bitor)
             .pipe(Self)
     }
 }
 
-impl From<GridIndexU64> for GridMask64<u64> {
-    fn from(idx: GridIndexU64) -> Self {
+impl From<BitIndexU64> for GridMask<u64> {
+    fn from(idx: BitIndexU64) -> Self {
         Self(1u64 << idx.get())
     }
 }
 
-impl From<GridPoint> for GridMask64<u64> {
+impl From<GridPoint> for GridMask<u64> {
     fn from(pos: GridPoint) -> Self {
         Self(1u64 << pos.0.get())
     }
 }
 
-impl From<[bool; 64]> for GridMask64<u64> {
+impl From<[bool; 64]> for GridMask<u64> {
     fn from(bools: [bool; 64]) -> Self {
         #[expect(clippy::cast_possible_truncation, reason = "i is always <= 63")]
         bools
@@ -598,16 +520,16 @@ impl From<[bool; 64]> for GridMask64<u64> {
             .enumerate()
             .filter_map(|(i, &set)| set.then_some(i))
             // Safety: i is always <= 63, so it is always a valid GridIndexU64
-            .map(|i| unsafe { GridIndexU64::new_unchecked(i as u8) })
+            .map(|i| unsafe { BitIndexU64::new_unchecked(i as u8) })
             .map_into()
             .fold(Self::EMPTY, |mask, i| mask | i)
     }
 }
 
-impl FromStr for GridMask64<u64> {
+impl FromStr for GridMask<u64> {
     type Err = PatternError;
 
-    /// Parses a string pattern into a [`GridMask64`].
+    /// Parses a string pattern into a [`GridMask`].
     ///
     /// Uses `#` for set cells and `.` for unset cells.
     /// Whitespace is ignored.
@@ -621,7 +543,7 @@ impl FromStr for GridMask64<u64> {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Grid, GridMask};
+    /// # use grid_mask::GridMask;
     /// # use std::str::FromStr;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let pattern = "

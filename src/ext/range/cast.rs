@@ -1,5 +1,9 @@
 use std::ops::{Range, RangeBounds, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive};
 
+use tap::Pipe;
+
+use crate::ext::MapTuple;
+
 /// Extension trait for casting ranges to a different type.
 pub trait RangeCast<T>: RangeBounds<T> + Sized {
     type Output<U>;
@@ -31,7 +35,9 @@ impl<T: Clone> RangeCast<T> for RangeInclusive<T> {
     type Output<U> = RangeInclusive<U>;
 
     fn cast<U: From<T>>(self) -> RangeInclusive<U> {
-        self.start().clone().into()..=self.end().clone().into()
+        self.into_inner() // fmt col
+            .map_into::<T, T>()
+            .pipe(|(start, end)| start.into()..=end.into())
     }
 
     fn try_cast<U: TryFrom<T>>(self) -> Result<RangeInclusive<U>, U::Error> {

@@ -1,7 +1,7 @@
 use std::num::NonZeroU64;
 use tap::Pipe;
 
-use crate::num::GridIndexU64;
+use crate::num::BitIndexU64;
 
 pub trait UnsetBit: Sized {
     /// Unsets the lowest set bit.
@@ -14,7 +14,7 @@ pub trait UnsetBit: Sized {
 
     /// Unsets the bit at the given index.
     #[must_use]
-    fn unset_bit(self, index: GridIndexU64) -> Self;
+    fn unset_bit(self, index: BitIndexU64) -> Self;
 }
 
 impl UnsetBit for Option<NonZeroU64> {
@@ -26,7 +26,7 @@ impl UnsetBit for Option<NonZeroU64> {
         self?.get().pipe(|v| NonZeroU64::new(v & !(1 << v.ilog2())))
     }
 
-    fn unset_bit(self, index: GridIndexU64) -> Self {
+    fn unset_bit(self, index: BitIndexU64) -> Self {
         self?.get().pipe(|v| NonZeroU64::new(v & !(1 << index.get())))
     }
 }

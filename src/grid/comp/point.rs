@@ -3,19 +3,31 @@ use tap::{Conv, Pipe};
 
 use crate::GridVector;
 use crate::err::OutOfBounds;
-use crate::ext::Bound;
-use crate::num::{BitIndexIter, GridIndexU64, GridPos};
+use crate::ext::{Bound, BoundedIter};
+use crate::num::{BitIndexU64, GridPos};
 
 /// A point in a 8x8 grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From, derive_more::Into, derive_more::Display)]
+#[derive(
+    Debug, // col format
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Display,
+)]
 #[display("({x}, {y})", x = self.x(), y = self.y())]
-pub struct GridPoint(pub GridIndexU64);
+pub struct GridPoint(pub BitIndexU64);
 
 impl GridPoint {
     /// The origin point `(0, 0)`.
-    pub const ORIGIN: Self = Self(GridIndexU64::MIN);
+    pub const ORIGIN: Self = Self(BitIndexU64::MIN);
     /// The maximum point `(7, 7)`.
-    pub const MAX: Self = Self(GridIndexU64::MAX);
+    pub const MAX: Self = Self(BitIndexU64::MAX);
 
     /// Creates a new [`GridPoint`] without bounds checking.
     ///
@@ -28,7 +40,7 @@ impl GridPoint {
         let index = x + y * 8;
         debug_assert!(index <= 63, "index should be within 0..=63");
 
-        unsafe { GridIndexU64::new_unchecked(index) }.pipe(Self)
+        unsafe { BitIndexU64::new_unchecked(index) }.pipe(Self)
     }
 
     /// Creates a new [`GridPoint`]
@@ -48,7 +60,7 @@ impl GridPoint {
     /// ```
     #[must_use]
     pub fn new(x: GridPos, y: GridPos) -> Self {
-        (x, y).conv::<GridIndexU64>().pipe(Self)
+        (x, y).conv::<BitIndexU64>().pipe(Self)
     }
 
     /// Tries to create a new [`GridPoint`].
@@ -113,7 +125,7 @@ impl GridPoint {
         assert!(X < 8, "x coordinate is out of bounds (must be < 8)");
         assert!(Y < 8, "y coordinate is out of bounds (must be < 8)");
 
-        let index = GridIndexU64::new(X + Y * 8).unwrap();
+        let index = BitIndexU64::new(X + Y * 8).unwrap();
         Self(index)
     }
 
@@ -192,6 +204,12 @@ impl GridPoint {
 
         Self::try_new(x, y)
     }
+
+    /// Returns an iterator over all possible [`GridPoint`] values.
+    #[must_use]
+    pub const fn all_values() -> BoundedIter<Self> {
+        BoundedIter::new()
+    }
 }
 
 impl<X: From<GridPos>, Y: From<GridPos>> From<GridPoint> for (X, Y) {
@@ -222,38 +240,20 @@ where
 impl Bound for GridPoint {
     const MIN: Self = Self::ORIGIN;
     const MAX: Self = Self::MAX;
+    const COUNT: usize = BitIndexU64::COUNT;
+
+    fn increment(&self) -> Option<Self> {
+        self.0.increment().map(Self)
+    }
+
+    fn decrement(&self) -> Option<Self> {
+        self.0.decrement().map(Self)
+    }
+
+    fn remaining(&self) -> usize {
+        self.0.remaining()
+    }
 }
 
 /// An iterator over all possible [`GridPoint`] values.
-#[derive(Debug, Clone)]
-pub struct GridPointIter(BitIndexIter);
-
-impl GridPointIter {
-    /// Creates a new [`GridPointIter`] starting at [`GridPoint::ORIGIN`] and
-    /// ending at [`GridPoint::MAX`].
-    #[must_use]
-    fn new() -> Self {
-        BitIndexIter::new().pipe(Self)
-    }
-}
-
-impl Iterator for GridPointIter {
-    type Item = GridPoint;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.0.next().map(GridPoint)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
-}
-
-impl DoubleEndedIterator for GridPointIter {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next_back().map(GridPoint)
-    }
-}
-
-impl std::iter::ExactSizeIterator for GridPointIter {}
-impl std::iter::FusedIterator for GridPointIter {}
+pub type GridPointIter = BoundedIter<GridPoint>;

@@ -1,33 +1,33 @@
 use std::num::NonZeroU32;
 use std::num::NonZeroU64;
-use std::ops::Range;
 
 use size_hinter::SizeHint;
 use tap::Pipe;
 
-use crate::ext::Bound;
 use crate::ext::bits::UnsetBit;
-use crate::num::{GridLen, GridPos};
+use crate::ext::debug_check_then;
+use crate::ext::{Bound, BoundedIter};
+use crate::num::GridPos;
 
 bounded_integer::bounded_integer! {
     /// A position in a u64 bitmask.
     ///
     /// The valid range is 0 to 63.
     #[repr(u8)]
-    pub struct GridIndexU64(0, 63);
+    pub struct BitIndexU64(0, 63);
 }
 
-impl GridIndexU64 {
+impl BitIndexU64 {
     /// Returns an iterator over all possible values of [`GridIndexU64`].
     #[must_use]
-    pub const fn all_values() -> BitIndexIter {
-        BitIndexIter::new()
+    pub const fn all_values() -> BoundedIter<Self> {
+        BoundedIter::new()
     }
 
-    /// Returns the position of the first set bit in `val`, if any.
+    /// Returns the position of the first set bit in `data`, if any.
     #[must_use]
-    pub const fn from_first_set(val: u64) -> Option<Self> {
-        match val.trailing_zeros() {
+    pub const fn from_first_set(data: u64) -> Option<Self> {
+        match data.trailing_zeros() {
             #[expect(clippy::cast_possible_truncation, reason = "match guards valid range")]
             val @ 0..64 => Self::new(val as u8),
             _ => None,
@@ -46,7 +46,7 @@ impl GridIndexU64 {
 pub struct SetBitsIter(Option<NonZeroU64>);
 
 impl Iterator for SetBitsIter {
-    type Item = GridIndexU64;
+    type Item = BitIndexU64;
 
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.0.map(NonZeroU64::trailing_zeros)?;
@@ -79,67 +79,59 @@ impl DoubleEndedIterator for SetBitsIter {
 }
 
 impl std::iter::ExactSizeIterator for SetBitsIter {}
-
 impl std::iter::FusedIterator for SetBitsIter {}
 
-impl Bound for GridIndexU64 {
+impl Bound for BitIndexU64 {
     const MIN: Self = Self::MIN;
     const MAX: Self = Self::MAX;
+
+    const COUNT: usize = (Self::MAX.get() - Self::MIN.get()) as usize + 1;
+
+    fn increment(&self) -> Option<Self> {
+        self.get().checked_add(1).and_then(Self::new)
+    }
+
+    fn decrement(&self) -> Option<Self> {
+        self.get().checked_sub(1).and_then(Self::new)
+    }
+
+    fn remaining(&self) -> usize {
+        (Self::MAX.get() - self.get()) as usize
+    }
 }
 
 /// An iterator over all possible [`GridIndexU64`] values in a range.
-#[derive(Debug, Clone)]
-pub struct BitIndexIter(Range<u8>);
+pub type BitIndexIter = BoundedIter<BitIndexU64>;
 
-impl BitIndexIter {
-    /// Creates a new [`BitIndexIter`] starting at `0` and ending at [`GridIndexU64::MAX`].
-    #[must_use]
-    pub(crate) const fn new() -> Self {
-        Self(0..64)
-    }
-}
+// impl From<GridPos> for BitIndexU64 {
+//     fn from(val: GridPos) -> Self {
+//         let index = val.get();
+//         debug_assert_then!(
+//             // Safety: GridPos is always <= 7, so it is always a valid GridIndexU64
+//             index <= 7 => unsafe { Self::new_unchecked(index) },
+//             "index ({index}) must be <= 7"
+//         )
+//     }
+// }
 
-impl Iterator for BitIndexIter {
-    type Item = GridIndexU64;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // Safety: The range is always 0..64, so the values are always valid GridIndexU64
-        self.0.next().map(|val| unsafe { GridIndexU64::new_unchecked(val) })
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        self.0.size_hint()
-    }
-}
-
-impl DoubleEndedIterator for BitIndexIter {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        // Safety: The range is always 0..64, so the values are always valid GridIndexU64
-        self.0.next_back().map(|val| unsafe { GridIndexU64::new_unchecked(val) })
-    }
-}
-
-impl std::iter::ExactSizeIterator for BitIndexIter {}
-impl std::iter::FusedIterator for BitIndexIter {}
-
-impl From<GridPos> for GridIndexU64 {
-    fn from(val: GridPos) -> Self {
-        // Safety: GridPos is always <= 8, so it is always a valid GridIndexU64
-        unsafe { Self::new_unchecked(val.get()) }
-    }
-}
-
-impl From<(GridPos, GridPos)> for GridIndexU64 {
+impl From<(GridPos, GridPos)> for BitIndexU64 {
     fn from((x, y): (GridPos, GridPos)) -> Self {
         let index = y.get() * 8 + x.get();
-        // Safety: index is always <= 63, so it is always a valid GridIndexU64
-        unsafe { Self::new_unchecked(index) }
+        debug_check_then!(
+            // Safety: index is always <= 63, so it is always a valid GridIndexU64
+            index <= 63 => unsafe { Self::new_unchecked(index) },
+            "index ({index}) must be <= 63"
+        )
     }
 }
 
-impl From<GridLen> for GridIndexU64 {
-    fn from(value: GridLen) -> Self {
-        // Safety: GridLen is always <= 8, so it is always a valid GridIndexU64
-        unsafe { Self::new_unchecked(value.get()) }
-    }
-}
+// impl From<GridLen> for BitIndexU64 {
+//     fn from(value: GridLen) -> Self {
+//         let index = value.get();
+//         debug_assert_then!(
+//             // Safety: GridLen is always <= 8, so it is always a valid GridIndexU64
+//             index <= 8 => unsafe { Self::new_unchecked(index) },
+//             "index ({index}) must be <= 8"
+//         )
+//     }
+// }

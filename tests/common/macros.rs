@@ -45,6 +45,18 @@ macro_rules! test_transform {
     };
 }
 
+macro_rules! test_mutation {
+    ($id:ident: $ctor:expr => $method:ident $( ::< $($gen:ty),+ > )? $( ( $($arg:expr),* ) )? => $expected:expr) => {
+        #[test]
+        fn $id() -> Result<(), Box<dyn std::error::Error>> {
+            let mut val = $ctor;
+            val.$method $( ::< $($gen),+ > )? ( $($($arg),*)? );
+            assert_eq!(val, $expected);
+            Ok(())
+        }
+    };
+}
+
 macro_rules! test_property {
     ($id:ident: $ctor:expr => $prop:ident $( ::< $($gen:ty),+ > )? $( ( $($arg:expr),* ) )? => $expected:expr) => {
         #[test]
@@ -84,9 +96,25 @@ macro_rules! test_foreach {
     };
 }
 
+macro_rules! test_foreach_mut {
+    ($id:ident: $ctor:expr => $method:ident($arg_name:ident in $iter:expr) => $expected:expr) => {
+        #[test]
+        fn $id() -> Result<(), Box<dyn std::error::Error>> {
+            for $arg_name in $iter {
+                let mut val = $ctor;
+                val.$method($arg_name);
+                assert_eq!(val, $expected, "Failed for input {:?}", $arg_name);
+            }
+            Ok(())
+        }
+    };
+}
+
 pub(crate) use test_ctor;
 pub(crate) use test_foreach;
+pub(crate) use test_foreach_mut;
 pub(crate) use test_iter;
+pub(crate) use test_mutation;
 pub(crate) use test_panic;
 pub(crate) use test_property;
 pub(crate) use test_transform;

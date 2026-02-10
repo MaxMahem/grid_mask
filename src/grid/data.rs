@@ -1,42 +1,87 @@
 use std::hash::Hash;
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Not};
 
-use tap::Conv;
+use tap::{Conv, TryConv};
 
 use crate::err::Discontiguous;
+use crate::ext::Bound;
 use crate::ext::bits::FromBitRange;
-use crate::num::{GridIndexU64, GridLen, GridPos};
-use crate::{Adjacency, GridShape, GridVector};
+use crate::grid::GridDelta;
+use crate::num::{BitIndexU64, GridLen, SignedMag, VecMagU64};
+use crate::{Adjacency, GridIndex, GridShape, GridVector};
 
+/// A [`GridData`] that can be read.
 #[sealed::sealed]
-pub trait GridData:
-    Eq + PartialEq + Hash + BitAnd<Output = Self> + BitAndAssign + BitOr<Output = Self> + BitOrAssign + Not + Sized
-{
+pub trait GridData: Default + Eq + PartialEq + Hash + Sized {
+    /// An empty grid
     const EMPTY: Self;
+    /// A full grid
     const FULL: Self;
 
-    type RowLen;
-    type ColLen;
+    /// The type used to represent row lengths
+    type RowLen: Bound;
+    /// The type used to represent column lengths
+    type ColLen: Bound;
 
+    /// The number of rows in the grid
     const ROWS: Self::RowLen;
+    /// The number of columns in the grid
     const COLS: Self::ColLen;
+    /// The number of cells in the grid
+    const CELLS: usize;
 
-    type Index;
+    /// The type of index used to access cells in the grid.
+    type Index: GridIndex<Self> + Bound;
+
+    /// The type used to represent valid (in bounds) translations
+    type Delta;
 
     /// Gets the state of the cell at `index`
-    fn index(&self, index: Self::Index) -> bool;
+    fn index<Idx: GridIndex<Self>>(&self, index: Idx) -> bool;
 
-    /// Sets the state of the cell at `index`
-    fn set(&mut self, index: Self::Index);
-
-    /// Unsets the state of the cell at `index`
-    fn unset(&mut self, index: Self::Index);
-
-    /// Translates the data by `delta`
-    fn translate(&mut self, delta: GridVector);
+    /// Returns the number of set cells in the grid.
+    #[must_use]
+    fn count(&self) -> usize;
 
     type Shape<A: Adjacency>;
+
     fn contiguous<A: Adjacency>(&self) -> Result<Self::Shape<A>, Discontiguous>;
+}
+
+/// A [`GridData`] that can be modified.
+#[sealed::sealed]
+pub trait GridDataMut: GridData + Clone + BitAndAssign + BitOrAssign + BitXorAssign {
+    /// Sets the cell at `index`
+    fn set<Idx: GridIndex<Self>>(&mut self, index: Idx);
+
+    /// Unsets the cell at `index`
+    fn unset<Idx: GridIndex<Self>>(&mut self, index: Idx);
+
+    /// Translates the grid by `delta`
+    fn translate_mut(&mut self, delta: GridVector);
+
+    /// Flips all bits in the grid
+    fn negate(&mut self);
+}
+
+/// An [`GridData`] that can be copied.
+#[sealed::sealed]
+pub trait GridDataValue:
+    GridData //
+    + Copy
+    + BitAnd<Output = Self>
+    + BitOr<Output = Self>
+    + BitXor<Output = Self>
+    + Not<Output = Self>
+{
+    /// Returns a new grid with the cell at `index` set.
+    fn with_set<Idx: GridIndex<Self>>(&self, index: Idx) -> Self;
+
+    /// Returns a new grid with the cell at `index` unset.
+    fn with_unset<Idx: GridIndex<Self>>(&self, index: Idx) -> Self;
+
+    /// Returns a new grid with the data translated by `delta`.
+    fn translate(&self, delta: GridVector) -> Self;
 }
 
 #[sealed::sealed]
@@ -49,69 +94,103 @@ impl GridData for u64 {
 
     const ROWS: Self::RowLen = GridLen::const_new::<8>();
     const COLS: Self::ColLen = GridLen::const_new::<8>();
+    const CELLS: usize = (Self::ROWS.get() * Self::COLS.get()) as usize;
 
-    type Index = GridIndexU64;
+    type Index = BitIndexU64;
+    type Delta = GridDelta<VecMagU64>;
 
-    fn index(&self, index: Self::Index) -> bool {
-        (self & (1 << index.get())) != 0
+    type Shape<A: Adjacency> = GridShape<A>;
+
+    fn index<Idx: GridIndex<Self>>(&self, index: Idx) -> bool {
+        (self & (1 << index.to_index().get())) != 0
     }
 
-    fn set(&mut self, index: Self::Index) {
-        let bit = 1 << index.get();
-        *self |= bit;
+    fn count(&self) -> usize {
+        self.count_ones() as usize
     }
 
-    fn unset(&mut self, index: Self::Index) {
-        let bit = 1 << index.get();
-        *self &= !bit;
+    fn contiguous<A: Adjacency>(&self) -> Result<Self::Shape<A>, Discontiguous> {
+        GridShape::try_from(*self)
+    }
+}
+
+#[sealed::sealed]
+impl GridDataMut for u64 {
+    fn set<Idx: GridIndex<Self>>(&mut self, index: Idx) {
+        *self |= 1 << index.to_index().get();
     }
 
-    fn translate(&mut self, delta: GridVector) {
+    fn unset<Idx: GridIndex<Self>>(&mut self, index: Idx) {
+        *self &= !(1 << index.to_index().get());
+    }
+
+    fn translate_mut(&mut self, delta: GridVector) {
         const COLS_U32: u32 = u64::COLS.get() as u32;
-        const COL_FIRST: u64 = 0x0101_0101_0101_0101;
+        const FIRST_COL: u64 = 0x0101_0101_0101_0101;
+
+        let Ok(delta) = delta.try_conv::<Self::Delta>() else {
+            *self = 0;
+            return;
+        };
 
         let mask = *self;
 
         let mask_shifted_y = match delta.y {
-            dy @ 1..=7 => mask << (dy.unsigned_abs().conv::<u32>() * COLS_U32),
-            dy @ -7..=-1 => mask >> (dy.unsigned_abs().conv::<u32>() * COLS_U32),
-            0 => mask,
-            _ => return,
+            SignedMag::Positive(dy) => mask << (dy.get().conv::<u32>() * COLS_U32),
+            SignedMag::Negative(dy) => mask >> (dy.get().conv::<u32>() * COLS_U32),
+            SignedMag::Zero => mask,
         };
 
         let mask_shifted_x_y = match delta.x {
-            dx @ 1..=7 => {
-                let shift = dx.unsigned_abs();
-                let mask_shifted_x_y = mask_shifted_y << shift;
+            SignedMag::Positive(dx) => {
+                let mask_shifted_x_y = mask_shifted_y << dx.get();
 
-                // Safety: shift is 1..=7, so it is a valid GridPos
-                let shift_pos = unsafe { GridPos::new_unchecked(shift) };
-
-                let col_mask = Self::from_bit_range(..shift_pos) * COL_FIRST;
+                let col_mask: Self = u8::from_bit_range(..dx).conv::<Self>() * FIRST_COL;
 
                 mask_shifted_x_y & !col_mask
             }
-            dx @ -7..=-1 => {
-                let shift = dx.unsigned_abs();
-                let mask_shifted_x_y = mask_shifted_y >> shift;
-
-                // Safety: shift is 1..=7, so 8 - shift is 1..=7, which is a valid GridPos
-                let start_pos = unsafe { GridPos::new_unchecked(8 - shift) };
-
-                let col_mask = Self::from_bit_range(start_pos..) * COL_FIRST;
-
-                mask_shifted_x_y & !col_mask
+            SignedMag::Negative(dx) => {
+                let col_mask: Self = u8::from_bit_range(..dx).conv::<Self>() * FIRST_COL;
+                (mask_shifted_y & !col_mask) >> dx.get()
             }
-            0 => mask_shifted_y,
-            _ => return,
+            SignedMag::Zero => mask_shifted_y,
         };
 
         *self = mask_shifted_x_y;
     }
 
-    type Shape<A: Adjacency> = GridShape<A>;
-
-    fn contiguous<A: Adjacency>(&self) -> Result<Self::Shape<A>, Discontiguous> {
-        GridShape::try_from(*self)
+    fn negate(&mut self) {
+        *self = !*self;
     }
+}
+
+#[sealed::sealed]
+impl<T> GridDataValue for T
+where
+    T: GridDataMut // col align
+        + Copy
+        + BitAnd<Output = Self>
+        + BitOr<Output = Self>
+        + BitXor<Output = Self>
+        + Not<Output = Self>,
+{
+    fn with_set<Idx: GridIndex<Self>>(&self, index: Idx) -> Self {
+        copy_mutate(*self, |value| value.set(index))
+    }
+
+    fn with_unset<Idx: GridIndex<Self>>(&self, index: Idx) -> Self {
+        copy_mutate(*self, |value| value.unset(index))
+    }
+
+    fn translate(&self, delta: GridVector) -> Self {
+        copy_mutate(*self, |value| value.translate_mut(delta))
+    }
+}
+
+#[inline]
+/// Applies the mutation function `f` to a copy of `value` and returns the result.
+fn copy_mutate<T: Copy>(value: T, f: impl FnOnce(&mut T)) -> T {
+    let mut copy = value;
+    f(&mut copy);
+    copy
 }

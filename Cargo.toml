@@ -15,7 +15,8 @@ categories = ["data-structures"]
 [dependencies]
 bounded-integer = { version = "0.6.1", features = ["macro", "std"] }
 collect_failable = { version = "0.18.0", default-features = false }
-derive_more = { version = "2.1.1", default-features = false, features = ["add", "add_assign", "constructor", "from", "into", "not", "display", "as_ref", "deref", "mul"] }
+delegate = "0.13.5"
+derive_more = { version = "2.1.1", default-features = false, features = ["add", "add_assign", "constructor", "from", "into", "not", "display", "as_ref", "deref", "mul", "default"] }
 fluent_result = { version = "0.10.1", default-features = false }
 itertools = { version = "0.14.0", default-features = false }
 num-traits = "0.2.19"

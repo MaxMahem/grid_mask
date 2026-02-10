@@ -1,85 +1,89 @@
-use std::ops::{RangeFrom, RangeInclusive, RangeTo};
+use std::fmt::Display;
+use std::ops::{Range, RangeFrom, RangeInclusive, RangeTo};
 
-use crate::ext::Bound;
-use crate::num::GridIndexU64;
+use tap::{Pipe, Tap};
 
-/// Returns a bitmask with the bits in the given range set.
+use crate::ext::MapTuple;
+use crate::num::{BitIndexU8, BitIndexU64};
+
+/// Trait for creating a value/bitmask from a range of indices.
 pub trait FromBitRange<R> {
+    /// Returns a value/bitmask with the bits in the given range set.
     fn from_bit_range(range: R) -> Self;
 }
 
-/// Returns a bitmask with the bits in the given range set.
-const fn generate_mask(start: u32, end: u32) -> u64 {
-    match (start, end) {
-        (start, end) if start > end => panic!("Invalid range"),
-        (_, 0) => 0,
-        (start, end) => (u64::MAX << start) & (u64::MAX >> (64 - end)),
-    }
+const fn generate_mask_u64(range: Range<u32>) -> u64 {
+    (u64::MAX << range.start) & (u64::MAX.unbounded_shr(u64::BITS - range.end))
 }
-
-// impl<T> FromBitRange<Range<T>> for u64
-// where
-//     T: Into<GridIndexU64> + BoundedValue,
-// {
-//     fn from_bit_range(range: Range<T>) -> Self {
-//         let start: GridIndexU64 = range.start.into();
-//         let end: GridIndexU64 = range.end.into();
-
-//         generate_mask(start.into(), end.into())
-//     }
-// }
 
 impl<T> FromBitRange<RangeInclusive<T>> for u64
 where
-    T: Into<GridIndexU64> + Bound,
+    T: Into<BitIndexU64> + Display + PartialOrd + Ord,
 {
     fn from_bit_range(range: RangeInclusive<T>) -> Self {
-        let (start, end) = range.into_inner();
-        let start: GridIndexU64 = start.into();
-        let end: GridIndexU64 = end.into();
-
-        generate_mask(start.into(), u32::from(end) + 1)
+        range
+            .into_inner()
+            .tap(|(start, end)| assert!(start <= end, "start ({start}) should be <= end ({end})"))
+            .map_into::<BitIndexU64, BitIndexU64>()
+            .map_into::<u32, u32>()
+            .pipe(|(start, end)| generate_mask_u64(start..end + 1))
     }
 }
 
 impl<T> FromBitRange<RangeFrom<T>> for u64
 where
-    T: Into<GridIndexU64> + Bound,
+    T: Into<BitIndexU64>,
 {
     fn from_bit_range(range: RangeFrom<T>) -> Self {
-        let start: GridIndexU64 = range.start.into();
-        let end: GridIndexU64 = T::MAX.into();
-
-        generate_mask(start.into(), u32::from(end) + 1)
+        const EXCLUSIVE_MAX: u32 = (BitIndexU64::MAX.get() + 1) as u32;
+        generate_mask_u64(range.start.into().into()..EXCLUSIVE_MAX)
     }
 }
 
 impl<T> FromBitRange<RangeTo<T>> for u64
 where
-    T: Into<GridIndexU64> + Bound,
+    T: Into<BitIndexU64>,
 {
     fn from_bit_range(range: RangeTo<T>) -> Self {
-        let start: GridIndexU64 = T::MIN.into();
-        let end: GridIndexU64 = range.end.into();
-
-        generate_mask(start.into(), end.into())
+        const INCLUSIVE_MIN: u32 = BitIndexU64::MIN.get() as u32;
+        generate_mask_u64(INCLUSIVE_MIN..range.end.into().into())
     }
 }
 
-// impl<T> FromBitRange<RangeToInclusive<T>> for u64
-// where
-//     T: Into<GridIndexU64> + BoundedValue,
-// {
-//     fn from_bit_range(range: RangeToInclusive<T>) -> Self {
-//         let start: GridIndexU64 = T::MIN.into();
-//         let end: GridIndexU64 = range.end.into();
+const fn generate_mask_u8(range: Range<u32>) -> u8 {
+    (u8::MAX << range.start) & (u8::MAX.unbounded_shr(u8::BITS - range.end))
+}
 
-//         generate_mask(start.into(), u32::from(end) + 1)
-//     }
-// }
+impl<T> FromBitRange<RangeInclusive<T>> for u8
+where
+    T: Into<BitIndexU8> + Display + PartialOrd + Ord,
+{
+    fn from_bit_range(range: RangeInclusive<T>) -> Self {
+        range
+            .into_inner()
+            .tap(|(start, end)| assert!(start <= end, "start ({start}) should be <= end ({end})"))
+            .map_into::<BitIndexU8, BitIndexU8>()
+            .map_into::<u32, u32>()
+            .pipe(|(start, end)| generate_mask_u8(start..end + 1))
+    }
+}
 
-// impl FromBitRange<RangeFull> for u64 {
-//     fn from_bit_range(_: RangeFull) -> Self {
-//         Self::MAX
-//     }
-// }
+impl<T> FromBitRange<RangeFrom<T>> for u8
+where
+    T: Into<BitIndexU8>,
+{
+    fn from_bit_range(range: RangeFrom<T>) -> Self {
+        const EXCLUSIVE_MAX: u32 = (BitIndexU8::MAX.get() + 1) as u32;
+        generate_mask_u8(range.start.into().into()..EXCLUSIVE_MAX)
+    }
+}
+
+impl<T> FromBitRange<RangeTo<T>> for u8
+where
+    T: Into<BitIndexU8>,
+{
+    fn from_bit_range(range: RangeTo<T>) -> Self {
+        const INCLUSIVE_MIN: u32 = BitIndexU8::MIN.get() as u32;
+        generate_mask_u8(INCLUSIVE_MIN..range.end.into().into())
+    }
+}

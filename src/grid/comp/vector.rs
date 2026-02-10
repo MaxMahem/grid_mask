@@ -1,4 +1,4 @@
-/// A 2D vector with unsigned components, representing a shift or displacement.
+/// An unbounded 2D vector with unsigned components, representing a shift or displacement.
 #[derive(
     Debug,
     Clone,
@@ -42,6 +42,18 @@ impl GridVector {
     pub const SOUTH_EAST: Self = Self::new(1, 1);
     /// The Southwest unit vector.
     pub const SOUTH_WEST: Self = Self::new(-1, 1);
+
+    /// Scales the vector by a factor.
+    #[must_use]
+    pub const fn scale(self, factor: i8) -> Self {
+        Self::new(self.x * factor, self.y * factor)
+    }
+
+    /// Returns the Manhattan distance between the vector and the origin.
+    #[must_use]
+    pub const fn manhattan_distance(&self) -> u8 {
+        self.x.unsigned_abs() + self.y.unsigned_abs()
+    }
 }
 
 impl From<(i8, i8)> for GridVector {

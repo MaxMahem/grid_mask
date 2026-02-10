@@ -1,10 +1,9 @@
 use fluent_result::bool::Then;
 use fluent_result::into::IntoResult;
-use tap::Pipe;
 
 use crate::err::OutOfBounds;
 use crate::num::{GridLen, GridPos};
-use crate::{Adjacency, GridMask, GridPoint, GridShape, GridSize, GridVector};
+use crate::{GridPoint, GridSize, GridVector};
 
 /// A rectangle on an 8x8 grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
@@ -160,11 +159,5 @@ impl GridRect {
     pub fn translate(&self, vec: GridVector) -> Result<Self, OutOfBounds> {
         let point = self.point.translate(vec)?;
         Self::new(point, self.size)
-    }
-}
-
-impl<Adj: Adjacency> From<GridRect> for GridShape<Adj> {
-    fn from(rect: GridRect) -> Self {
-        GridMask::from(rect).pipe(Self::new)
     }
 }
