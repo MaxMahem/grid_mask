@@ -84,6 +84,8 @@ pub trait GridDataValue:
     fn translate(&self, delta: GridVector) -> Self;
 }
 
+struct GridDataU64(u64);
+
 #[sealed::sealed]
 impl GridData for u64 {
     const EMPTY: Self = 0;
@@ -114,6 +116,32 @@ impl GridData for u64 {
     }
 }
 
+fn translate(data: u64, delta: GridDelta<VecMagU64>) -> u64 {
+    const COLS_U32: u32 = u64::COLS.get() as u32;
+    const FIRST_COL: u64 = 0x0101_0101_0101_0101;
+
+    let data_shifted_y = match delta.y {
+        SignedMag::Positive(dy) => data << (dy.get().conv::<u32>() * COLS_U32),
+        SignedMag::Negative(dy) => data >> (dy.get().conv::<u32>() * COLS_U32),
+        SignedMag::Zero => data,
+    };
+
+    match delta.x {
+        SignedMag::Positive(dx) => {
+            let mask_shifted_x_y = data_shifted_y << dx.get();
+
+            let col_mask = u8::from_bit_range(..dx).conv::<u64>() * FIRST_COL;
+
+            mask_shifted_x_y & !col_mask
+        }
+        SignedMag::Negative(dx) => {
+            let col_mask = u8::from_bit_range(..dx).conv::<u64>() * FIRST_COL;
+            (data_shifted_y & !col_mask) >> dx.get()
+        }
+        SignedMag::Zero => data_shifted_y,
+    }
+}
+
 #[sealed::sealed]
 impl GridDataMut for u64 {
     fn set<Idx: GridIndex<Self>>(&mut self, index: Idx) {
@@ -125,38 +153,9 @@ impl GridDataMut for u64 {
     }
 
     fn translate_mut(&mut self, delta: GridVector) {
-        const COLS_U32: u32 = u64::COLS.get() as u32;
-        const FIRST_COL: u64 = 0x0101_0101_0101_0101;
-
-        let Ok(delta) = delta.try_conv::<Self::Delta>() else {
-            *self = 0;
-            return;
-        };
-
-        let mask = *self;
-
-        let mask_shifted_y = match delta.y {
-            SignedMag::Positive(dy) => mask << (dy.get().conv::<u32>() * COLS_U32),
-            SignedMag::Negative(dy) => mask >> (dy.get().conv::<u32>() * COLS_U32),
-            SignedMag::Zero => mask,
-        };
-
-        let mask_shifted_x_y = match delta.x {
-            SignedMag::Positive(dx) => {
-                let mask_shifted_x_y = mask_shifted_y << dx.get();
-
-                let col_mask: Self = u8::from_bit_range(..dx).conv::<Self>() * FIRST_COL;
-
-                mask_shifted_x_y & !col_mask
-            }
-            SignedMag::Negative(dx) => {
-                let col_mask: Self = u8::from_bit_range(..dx).conv::<Self>() * FIRST_COL;
-                (mask_shifted_y & !col_mask) >> dx.get()
-            }
-            SignedMag::Zero => mask_shifted_y,
-        };
-
-        *self = mask_shifted_x_y;
+        *self = delta
+            .try_conv::<Self::Delta>() // rustfmt
+            .map_or(Self::EMPTY, |delta| translate(*self, delta));
     }
 
     fn negate(&mut self) {

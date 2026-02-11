@@ -21,4 +21,4 @@ pub use grid::Cells;
 /// An iterator over the points of a [`GridMask`].
 pub use grid::Points;
 pub use grid::{Adjacency, Cardinal, Octile};
-pub use grid::{GridDeltaU64, GridIndex, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};
+pub use grid::{GridDelta, GridIndex, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};
