@@ -1,8 +1,7 @@
+#![allow(clippy::unwrap_used)]
 #[path = "../common/macros.rs"]
 mod macros;
 
-mod mask;
+mod grid;
+mod index;
 mod point;
-mod rect;
-mod shape;
-mod size;
