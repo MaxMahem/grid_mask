@@ -1,8 +1,5 @@
-use tap::Pipe;
-
-use crate::ArrayIndex;
 use crate::err::OutOfBounds;
-use crate::ext::{MapTuple, const_assert_then};
+use crate::ext::const_assert_then;
 
 /// A point in an `ArrayGrid` of width `W` and height `H`.
 ///
@@ -22,9 +19,9 @@ use crate::ext::{MapTuple, const_assert_then};
 #[display("({x}, {y})")]
 pub struct ArrayPoint<const W: u16, const H: u16> {
     /// The x-coordinate of the point.
-    x: u16,
+    pub x: u16,
     /// The y-coordinate of the point.
-    y: u16,
+    pub y: u16,
 }
 
 impl<const W: u16, const H: u16> ArrayPoint<W, H> {
@@ -38,7 +35,8 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
         y: H.checked_sub(1).expect("height must be > 0"),
     };
 
-    const W_U32: u32 = W as u32;
+    pub(crate) const W_U32: u32 = W as u32;
+    pub(crate) const H_U32: u32 = H as u32;
 
     /// Creates a new [`ArrayPoint`] from raw [`u16`] coordinates.
     ///
@@ -83,15 +81,6 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     #[must_use]
     pub const fn y(&self) -> u16 {
         self.y
-    }
-}
-
-impl<const W: u16, const H: u16> From<ArrayPoint<W, H>> for ArrayIndex<W, H> {
-    fn from(point: ArrayPoint<W, H>) -> Self {
-        (point.x, point.y) //
-            .map_into()
-            .pipe(|(x, y): (u32, u32)| y * ArrayPoint::<W, H>::W_U32 + x)
-            .pipe(Self)
     }
 }
 

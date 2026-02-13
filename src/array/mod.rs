@@ -1,3 +1,4 @@
+mod delta;
 mod grid;
 mod index;
 mod point;

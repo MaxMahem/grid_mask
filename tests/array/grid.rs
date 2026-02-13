@@ -1,12 +1,21 @@
-use crate::macros::{test_ctor, test_mutation, test_property};
+use crate::macros::{test_ctor, test_mutation, test_property, test_try_mutation};
+use grid_mask::err::OutOfBounds;
 use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
+use std::str::FromStr;
 
 type Grid8 = ArrayGrid<8, 8, 1>;
 type Point8 = ArrayPoint<8, 8>;
 type Index8 = ArrayIndex<8, 8>;
 
+const GRID8_1_1: Grid8 = {
+    let mut g = Grid8::EMPTY;
+    g.const_set(Index8::const_new::<{ 8 + 1 }>(), true);
+    g
+};
+
 // 10x10 grid needs 100 bits. 100 / 64 = 2 words (ceil).
 type Grid10 = ArrayGrid<10, 10, 2>;
+type Point10 = ArrayPoint<10, 10>;
 
 mod consts {
     use super::*;
@@ -75,32 +84,296 @@ mod access {
 mod translation {
     use super::*;
 
-    test_mutation!(zero: Grid8::FULL => translate_mut(ArrayVector::ZERO) => Grid8::FULL);
+    test_mutation!(zero_full: Grid8::FULL => translate_mut(ArrayVector::ZERO) => Grid8::FULL);
+    test_mutation!(zero_empty: Grid8::EMPTY => translate_mut(ArrayVector::ZERO) => Grid8::EMPTY);
 
-    test_mutation!(east: Grid8::from([0x01]) => translate_mut(ArrayVector::EAST) => Grid8::from([0x02]));
-    test_mutation!(west: Grid8::from([0x02]) => translate_mut(ArrayVector::WEST) => Grid8::from([0x01]));
-    test_mutation!(south: Grid8::from([0x01]) => translate_mut(ArrayVector::SOUTH) => Grid8::from([0x01 << 8]));
-    test_mutation!(north: Grid8::from([0x01 << 8]) => translate_mut(ArrayVector::NORTH) => Grid8::from([0x01]));
+    test_mutation!(east: GRID8_1_1 => translate_mut(ArrayVector::EAST) => Grid8::from_iter([Point8::new(2, 1)?]));
+    test_mutation!(west: GRID8_1_1 => translate_mut(ArrayVector::WEST) => Grid8::from_iter([Point8::new(0, 1)?]));
+    test_mutation!(south: GRID8_1_1 => translate_mut(ArrayVector::SOUTH) => Grid8::from_iter([Point8::new(1, 2)?]));
+    test_mutation!(north: GRID8_1_1 => translate_mut(ArrayVector::NORTH) => Grid8::from_iter([Point8::new(1, 0)?]));
 
-    test_mutation!(diagonal: Grid8::from([0x01]) => translate_mut(ArrayVector::new(1, 1)) => Grid8::from([0x01 << 9]));
+    test_mutation!(
+        east_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 0)) => Grid10::from_str("
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+        ").expect("pattern should be valid")
+    );
+    test_mutation!(
+        west_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 0)) => Grid10::from_str("
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+        ").expect("pattern should be valid")
+    );
+    test_mutation!(
+        south_5: Grid10::FULL => translate_mut(ArrayVector::new(0, 5)) => Grid10::from_str("\
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            # # # # # # # # # #
+            # # # # # # # # # #
+            # # # # # # # # # #
+            # # # # # # # # # #
+            # # # # # # # # # #
+        ").expect("pattern should be valid")
+    );
 
-    test_mutation!(wrap_east: Grid8::from([1 << 7]) => translate_mut(ArrayVector::new(1, 0)) => Grid8::EMPTY);
-    test_mutation!(wrap_west: Grid8::from([1]) => translate_mut(ArrayVector::new(-1, 0)) => Grid8::EMPTY);
+    // Diagonal translations (5 units each axis)
+    test_mutation!(
+        se_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 5)) => Grid10::from_str("\
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #").unwrap()
+    );
+    test_mutation!(
+        sw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 5)) => Grid10::from_str("
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .").unwrap()
+    );
+    test_mutation!(
+        ne_5: Grid10::FULL => translate_mut(ArrayVector::new(5, -5)) => Grid10::from_str("
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . # # # # #
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .").unwrap()
+    );
+    test_mutation!(
+        nw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, -5)) => Grid10::from_str("
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            # # # # # . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .
+            . . . . . . . . . .").unwrap()
+    );
 
-    test_mutation!(oob_x: Grid8::FULL => translate_mut(ArrayVector::new(8, 0)) => Grid8::EMPTY);
-    test_mutation!(oob_y: Grid8::FULL => translate_mut(ArrayVector::new(0, 8)) => Grid8::EMPTY);
+    macro_rules! test_oob_empty {
+        ( $( ($name:ident: $Grid:ty, $vector:expr) ),* $(,)? ) => {
+            $(test_mutation!(
+                $name: <$Grid>::FULL => translate_mut($vector) => <$Grid>::EMPTY
+            );)*
+        };
+    }
 
-    #[test]
-    fn multi_word_shift() {
-        let mut grid = Grid10::EMPTY;
-        // Set bit at (0, 0) - index 0, word 0
-        grid.set(ArrayIndex::<10, 10>::new(0).unwrap(), true);
-        // Translate to (0, 7) - index 70, word 1 (70/64 = 1, 70%64 = 6)
-        grid.translate_mut(ArrayVector::new(0, 7));
+    test_oob_empty![
+        (oob_8_x_pos: Grid8, ArrayVector::new(8, 0)),
+        (oob_8_x_neg: Grid8, ArrayVector::new(-8, 0)),
+        (oob_8_y_pos: Grid8, ArrayVector::new(0, 8)),
+        (oob_8_y_neg: Grid8, ArrayVector::new(0, -8)),
+    ];
 
-        let mut expected = Grid10::EMPTY;
-        expected.set(ArrayIndex::<10, 10>::new(70).unwrap(), true);
-        assert_eq!(grid, expected);
-        assert_ne!(grid.words()[1], 0);
+    test_oob_empty![
+        (oob_10_x_pos: Grid10, ArrayVector::new(10, 0)),
+        (oob_10_x_neg: Grid10, ArrayVector::new(-10, 0)),
+        (oob_10_y_pos: Grid10, ArrayVector::new(0, 10)),
+        (oob_10_y_neg: Grid10, ArrayVector::new(0, -10)),
+    ];
+
+    macro_rules! test_max_shift {
+        ( $( ($name:ident: $Grid:ty, $vector:expr => $expected:expr) ),* $(,)? ) => {
+            $(test_mutation!(
+                $name: <$Grid>::FULL => translate_mut($vector) => <$Grid>::from_iter($expected)
+            );)*
+        };
+    }
+
+    test_max_shift![
+        (max_nw: Grid8, ArrayVector::new(-7, -7) => [Point8::new(0, 0)?]),
+        (max_ne: Grid8, ArrayVector::new(7, -7) => [Point8::new(7, 0)?]),
+        (max_sw: Grid8, ArrayVector::new(-7, 7) => [Point8::new(0, 7)?]),
+        (max_se: Grid8, ArrayVector::new(7, 7) => [Point8::new(7, 7)?]),
+    ];
+
+    test_max_shift![
+        (max_nw_10: Grid10, ArrayVector::new(-9, -9) => [Point10::new(0, 0)?]),
+        (max_ne_10: Grid10, ArrayVector::new(9, -9) => [Point10::new(9, 0)?]),
+        (max_sw_10: Grid10, ArrayVector::new(-9, 9) => [Point10::new(0, 9)?]),
+        (max_se_10: Grid10, ArrayVector::new(9, 9) => [Point10::new(9, 9)?]),
+    ];
+}
+
+mod bitwise {
+    use super::*;
+
+    const POINT8_1_1: Point8 = Point8::const_new::<1, 1>();
+    type Grid9 = ArrayGrid<9, 9, 2>;
+    type Grid11 = ArrayGrid<11, 11, 2>;
+    type Point11 = ArrayPoint<11, 11>;
+
+    const POINT11_1_1: Point11 = Point11::const_new::<1, 1>();
+
+    macro_rules! test_simple_bitwise_mut {
+        ( $type:ty, $method:ident, [ $(( $name:ident: $ctor:ident $_:tt $arg:ident => $expected:ident)),* $(,)? ] ) => {
+            $(test_try_mutation!(
+                $name: <$type>::$ctor
+                => $method(&<$type>::$arg, <$type>::ORIGIN)
+                => (Ok(()), <$type>::$expected)
+            );)*
+        };
+    }
+
+    mod and {
+        use super::*;
+
+        test_simple_bitwise_mut!(Grid8, bitand_at, [
+            (full_and_full: FULL & FULL => FULL),
+            (empty_and_full: EMPTY & FULL => EMPTY),
+            (full_and_empty: FULL & EMPTY => EMPTY),
+            (empty_and_empty: EMPTY & EMPTY => EMPTY),
+        ]);
+
+        test_try_mutation!(
+            oob: Grid8::FULL
+            => bitand_at(&Grid8::FULL, POINT8_1_1)
+            => (Err(OutOfBounds), Grid8::FULL)
+        );
+
+        test_try_mutation!(
+            eleven_nine_full: Grid11::FULL
+            => bitand_at(&Grid9::FULL, POINT11_1_1)
+            => (Ok(()), Grid11::FULL)
+        );
+
+        test_try_mutation!(
+            eleven_nine_empty: Grid11::FULL
+            => bitand_at(&Grid9::EMPTY, POINT11_1_1)
+            => (Ok(()), Grid11::from_str("
+                # # # # # # # # # # #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # # # # # # # # # # #
+            ").unwrap())
+        );
+    }
+
+    mod or {
+        use super::*;
+
+        test_simple_bitwise_mut!(Grid8, bitor_at, [
+            (full_or_full: FULL | FULL => FULL),
+            (empty_or_full: EMPTY | FULL => FULL),
+            (full_or_empty: FULL | EMPTY => FULL),
+            (empty_or_empty: EMPTY | EMPTY => EMPTY),
+        ]);
+
+        test_try_mutation!(
+            oob: Grid8::FULL
+            => bitor_at(&Grid8::FULL, POINT8_1_1)
+            => (Err(OutOfBounds), Grid8::FULL)
+        );
+
+        test_try_mutation!(
+            eleven_nine_full: Grid11::EMPTY
+            => bitor_at(&Grid9::FULL, POINT11_1_1)
+            => (Ok(()), Grid11::from_str("
+                . . . . . . . . . . .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . # # # # # # # # # .
+                . . . . . . . . . . .
+            ").unwrap())
+        );
+
+        test_try_mutation!(
+            eleven_nine_empty: Grid11::EMPTY
+            => bitor_at(&Grid9::EMPTY, POINT11_1_1)
+            => (Ok(()), Grid11::EMPTY)
+        );
+    }
+
+    mod xor {
+        use super::*;
+
+        test_simple_bitwise_mut!(Grid8, bitxor_at, [
+            (full_xor_full: FULL ^ FULL => EMPTY),
+            (empty_xor_full: EMPTY ^ FULL => FULL),
+            (full_xor_empty: FULL ^ EMPTY => FULL),
+            (empty_xor_empty: EMPTY ^ EMPTY => EMPTY),
+        ]);
+
+        test_try_mutation!(
+            oob: Grid8::FULL
+            => bitxor_at(&Grid8::FULL, POINT8_1_1)
+            => (Err(OutOfBounds), Grid8::FULL)
+        );
+
+        test_try_mutation!(
+            eleven_nine_full: Grid11::FULL
+            => bitxor_at(&Grid9::FULL, POINT11_1_1)
+            => (Ok(()), Grid11::from_str("
+                # # # # # # # # # # #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # . . . . . . . . . #
+                # # # # # # # # # # #
+            ").unwrap())
+        );
+
+        test_try_mutation!(
+            eleven_nine_empty: Grid11::FULL
+            => bitxor_at(&Grid9::EMPTY, POINT11_1_1)
+            => (Ok(()), Grid11::FULL)
+        );
     }
 }

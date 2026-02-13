@@ -1,4 +1,8 @@
-use crate::{err::OutOfBounds, ext::const_assert};
+use tap::Pipe;
+
+use crate::ArrayPoint;
+use crate::err::OutOfBounds;
+use crate::ext::{MapTuple, const_assert};
 
 // /// A trait for types that can be converted into a flat array index.
 // ///
@@ -25,7 +29,7 @@ use crate::{err::OutOfBounds, ext::const_assert};
     derive_more::From,
     derive_more::Into,
 )]
-pub struct ArrayIndex<const W: u16, const H: u16>(pub(crate) u32);
+pub struct ArrayIndex<const W: u16, const H: u16>(u32);
 
 impl<const W: u16, const H: u16> ArrayIndex<W, H> {
     /// The minimum valid index.
@@ -33,6 +37,8 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
 
     /// The maximum valid index.
     pub const MAX: Self = Self(W as u32 * H as u32 - 1);
+
+    const W_U32: u32 = W as u32;
 
     /// Creates a new [`ArrayIndex`] from a flat index.
     ///
@@ -45,6 +51,25 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
             false => Ok(Self(index)),
         }
     }
+
+    /// Creates a new [`ArrayIndex`] from a flat index.
+    ///
+    /// # Errors
+    ///
+    /// [`OutOfBounds`] if the index is out of bounds (>= W * H).
+    pub fn try_new<T: TryInto<u32>>(index: T) -> Result<Self, OutOfBounds> {
+        index.try_into().map_err(OutOfBounds::new_from).and_then(Self::new)
+    }
+
+    // /// Creates a new [`ArrayIndex`] from a flat index without checking bounds.
+    // ///
+    // /// # Safety
+    // ///
+    // /// The caller must ensure that `index < W * H`.
+    // pub unsafe fn new_unchecked(index: u32) -> Self {
+    //     debug_assert!(index < W as u32 * H as u32);
+    //     Self(index)
+    // }
 
     /// Creates a new [`ArrayIndex`] from a flat index.
     ///
@@ -71,5 +96,14 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
 impl<const W: u16, const H: u16> PartialEq<u32> for ArrayIndex<W, H> {
     fn eq(&self, other: &u32) -> bool {
         self.0 == *other
+    }
+}
+
+impl<const W: u16, const H: u16> From<ArrayPoint<W, H>> for ArrayIndex<W, H> {
+    fn from(point: ArrayPoint<W, H>) -> Self {
+        (point.x, point.y) //
+            .map_into()
+            .pipe(|(x, y): (u32, u32)| y * Self::W_U32 + x)
+            .pipe(Self)
     }
 }

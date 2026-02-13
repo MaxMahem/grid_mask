@@ -1,16 +1,23 @@
 use std::num::NonZeroU16;
+use std::str::FromStr;
 
+use bitvec::prelude::{BitArray, Lsb0};
+use fluent_result::bool::Then;
+use fluent_result::into::IntoResult;
 use itertools::Itertools;
-use num_integer::Integer;
+use tap::Conv;
 
-use crate::ext::FoldMut;
-use crate::{ArrayIndex, ArrayVector};
+use crate::array::delta::ArrayDelta;
+use crate::err::{OutOfBounds, PatternError};
+use crate::ext::{FoldMut, NotWhitespace};
+use crate::num::SignedMag;
+use crate::{ArrayIndex, ArrayPoint, ArrayVector};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[readonly::make]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ArrayGrid<const W: u16, const H: u16, const WORDS: usize> {
-    pub(crate) words: [u64; WORDS],
+    pub(crate) words: BitArray<[u64; WORDS], Lsb0>,
 }
 
 /// Helper macro for creating an [`ArrayGrid`] with the correct number of words.
@@ -23,14 +30,19 @@ macro_rules! ArrayGrid {
 
 impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// An empty grid with all bits unset.
-    pub const EMPTY: Self = Self { words: [0; WORDS] };
+    pub const EMPTY: Self = Self { words: BitArray::ZERO };
 
     /// A full grid with all bits set.
     pub const FULL: Self = const {
-        let mut grid = Self { words: [u64::MAX; WORDS] };
+        let mut words = BitArray::<[u64; WORDS], Lsb0>::ZERO;
+        words.data = [u64::MAX; WORDS];
+        let mut grid = Self { words };
         grid.clear_trailing_bits();
         grid
     };
+
+    /// The origin point of the grid.
+    pub const ORIGIN: ArrayPoint<W, H> = ArrayPoint::ORIGIN;
 
     /// The width of the grid.
     pub const WIDTH: NonZeroU16 = NonZeroU16::new(W).expect("Width must be greater than 0");
@@ -39,10 +51,13 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// The total number of cells in the grid.
     pub const CELL_COUNT: u32 = W as u32 * H as u32;
 
+    const CELL_COUNT_USZ: usize = Self::CELL_COUNT as usize;
+    const WORD_BITS: usize = u64::BITS as usize;
+
     /// The number of `u64` words used to store the grid data.
     const WORD_COUNT: usize = const {
         assert!(
-            WORDS == usize::div_ceil(Self::CELL_COUNT as usize, u64::BITS as usize),
+            WORDS == usize::div_ceil(Self::CELL_COUNT_USZ, Self::WORD_BITS),
             "WORDS must match the minimum number of words needed to represent the grid"
         );
         WORDS
@@ -52,19 +67,24 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     #[must_use]
     pub fn get<Idx: Into<ArrayIndex<W, H>>>(&self, index: Idx) -> bool {
         let (word, bit) = index.into().word_and_bit();
-        self.words[word] & (1_u64 << bit) != 0
+        self.words.data[word] & (1_u64 << bit) != 0
     }
 
     /// Returns the number of set cells in the grid.
     #[must_use]
     pub fn count(&self) -> u32 {
-        self.words.iter().copied().map(u64::count_ones).sum()
+        self.words.data.iter().copied().map(u64::count_ones).sum()
     }
 
     /// Returns the raw data.
     #[must_use]
     pub const fn words(&self) -> &[u64] {
-        &self.words
+        &self.words.data
+    }
+
+    /// Returns an iterator over all cells in the grid.
+    pub fn cells(&self) -> impl Iterator<Item = bool> + '_ {
+        (0..Self::CELL_COUNT).map_while(|i| self.words.get(i as usize).as_deref().copied())
     }
 
     /// Sets the cell at `index` to `value`.
@@ -76,22 +96,22 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     // TODO: Remove when const traits stabilize
     pub const fn const_set(&mut self, index: ArrayIndex<W, H>, value: bool) {
         match (index.word_and_bit(), value) {
-            ((word, bit), true) => self.words[word] |= 1u64 << bit,
-            ((word, bit), false) => self.words[word] &= !(1u64 << bit),
+            ((word, bit), true) => self.words.data[word] |= 1u64 << bit,
+            ((word, bit), false) => self.words.data[word] &= !(1u64 << bit),
         }
     }
 
     /// Clears all cells in the grid.
     pub fn clear(&mut self) {
-        self.words.fill(0);
+        self.words.data.fill(0);
     }
 
     /// Fills all cells in the grid with `value`.
     pub fn fill(&mut self, value: bool) {
         match value {
-            false => self.words.fill(0),
+            false => self.words.data.fill(0),
             true => {
-                self.words.fill(u64::MAX);
+                self.words.data.fill(u64::MAX);
                 self.clear_trailing_bits();
             }
         }
@@ -102,105 +122,150 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// Bits that shift beyond the grid boundary are discarded; vacated
     /// positions are filled with `false`.
     pub fn translate_mut(&mut self, vec: ArrayVector) {
-        let (dx, dy) = (vec.dx, vec.dy);
-
-        // Shift exceeds grid bounds → result is empty
-        if dx.unsigned_abs() >= W as u32 || dy.unsigned_abs() >= H as u32 {
-            self.clear();
-            return;
-        }
-
-        // Combined flat bit shift: dy rows + dx columns
-        let total = i64::from(dy) * i64::from(W) + i64::from(dx);
-
-        match total {
-            total if total > 0 => self.flat_shift_left(total as u32),
-            total if total < 0 => self.flat_shift_right((-total) as u32),
-            _ => (),
-        }
-
-        // Mask out columns that wrapped across row boundaries
-        if dx != 0 {
-            self.clear_wrapped_columns(dx);
-        }
-
-        self.clear_trailing_bits();
-    }
-
-    /// Shifts the entire flat bit array left (toward higher bit indices) by `n` bits.
-    fn flat_shift_left(&mut self, n: u32) {
-        let (word_shift, bit_shift) = u32::div_rem(&n, &u64::BITS);
-
-        (0..WORDS)
-            .rev() // iterate backwards to avoid overwriting data we haven't moved yet
-            .map(|dest| (dest.checked_sub(word_shift as usize), dest))
-            .for_each(|(src, dest)| {
-                self.words[dest] = match (src, bit_shift) {
-                    // whole word shift
-                    (Some(src), 0) => self.words[src],
-                    // partial word shift
-                    (Some(src), _) => {
-                        // carry bits from previous word
-                        if let Some(prev) = src.checked_sub(1) {
-                            self.words[src] << bit_shift | self.words[prev] >> (64 - bit_shift)
-                        // no carry bits
-                        } else {
-                            self.words[src] << bit_shift
-                        }
-                    }
-                    // src is None → shift out of bounds
-                    _ => 0u64,
-                };
-            });
-    }
-
-    /// Shifts the entire flat bit array right (toward lower bit indices) by `n` bits.
-    fn flat_shift_right(&mut self, n: u32) {
-        let (word_shift, bit_shift) = u32::div_rem(&n, &u64::BITS);
-
-        (0..WORDS).map(|dest| (dest + word_shift as usize, dest)).for_each(|(src, dest)| {
-            let mut val = 0u64;
-            if src < WORDS {
-                val = self.words[src] >> bit_shift;
-                if bit_shift > 0 && src + 1 < WORDS {
-                    val |= self.words[src + 1] << (64 - bit_shift);
-                }
+        match ArrayDelta::<W, H>::try_from(vec).map(|d| (d.linear_offset, d.dx)) {
+            Ok((SignedMag::Zero, _)) => {}
+            Ok((SignedMag::Positive(n), dx)) => {
+                self.words.as_mut_bitslice().shift_right(n.get() as usize);
+                self.clear_wrapped_columns(dx);
+                self.clear_trailing_bits();
             }
-            self.words[dest] = val;
-        });
+            Ok((SignedMag::Negative(n), dx)) => {
+                self.words.as_mut_bitslice().shift_left(n.get() as usize);
+                self.clear_wrapped_columns(dx);
+                self.clear_trailing_bits();
+            }
+            Err(_) => self.clear(),
+        }
     }
+
+    const W_U32: u32 = W as u32;
+    const H_U32: u32 = H as u32;
+
+    fn ensure_fits<const W2: u16, const H2: u16, const _WORDS2: usize>(
+        _other: &ArrayGrid<W2, H2, _WORDS2>,
+        at: ArrayPoint<W, H>,
+    ) -> Result<(), OutOfBounds> {
+        (u32::from(at.x) + ArrayPoint::<W2, H2>::W_U32 > Self::W_U32
+            || u32::from(at.y) + ArrayPoint::<W2, H2>::H_U32 > Self::H_U32)
+            .then_err(OutOfBounds)
+    }
+
+    /// Performs a logical AND operation with another grid at the specified point.
+    ///
+    /// Only the intersection of the two grids is affected.
+    /// If the other grid does not fit at the specified point, the operation returns `Err(OutOfBounds)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
+    pub fn bitand_at<const W2: u16, const H2: u16, const WORDS2: usize>(
+        &mut self,
+        other: &ArrayGrid<W2, H2, WORDS2>,
+        at: ArrayPoint<W, H>,
+    ) -> Result<(), OutOfBounds> {
+        Self::ensure_fits(other, at)?;
+
+        let mut src_start = 0;
+        let mut dst_start = usize::from(at.y) * Self::W_USIZE + usize::from(at.x);
+        let len = usize::from(W2);
+
+        for _ in 0..H2 {
+            let src_slice = &other.words[src_start..src_start + len];
+            let dst_slice = &mut self.words[dst_start..dst_start + len];
+            *dst_slice &= src_slice;
+
+            src_start += ArrayGrid::<W2, H2, WORDS2>::W_USIZE;
+            dst_start += Self::W_USIZE;
+        }
+
+        Ok(())
+    }
+
+    /// Performs a logical OR operation with another grid at the specified point.
+    ///
+    /// If the other grid does not fit at the specified point, the operation returns `Err(OutOfBounds)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
+    pub fn bitor_at<const W2: u16, const H2: u16, const WORDS2: usize>(
+        &mut self,
+        other: &ArrayGrid<W2, H2, WORDS2>,
+        at: ArrayPoint<W, H>,
+    ) -> Result<(), OutOfBounds> {
+        Self::ensure_fits(other, at)?;
+
+        let mut src_start = 0;
+        let mut dst_start = usize::from(at.y) * Self::W_USIZE + usize::from(at.x);
+        let len = usize::from(W2);
+
+        for _ in 0..H2 {
+            let src_slice = &other.words[src_start..src_start + len];
+            let dst_slice = &mut self.words[dst_start..dst_start + len];
+            *dst_slice |= src_slice;
+
+            src_start += ArrayGrid::<W2, H2, WORDS2>::W_USIZE;
+            dst_start += Self::W_USIZE;
+        }
+
+        Ok(())
+    }
+
+    /// Performs a logical XOR operation with another grid at the specified point.
+    ///
+    /// If the other grid does not fit at the specified point, the operation returns `Err(OutOfBounds)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
+    pub fn bitxor_at<const W2: u16, const H2: u16, const WORDS2: usize>(
+        &mut self,
+        other: &ArrayGrid<W2, H2, WORDS2>,
+        at: ArrayPoint<W, H>,
+    ) -> Result<(), OutOfBounds> {
+        Self::ensure_fits(other, at)?;
+
+        let mut src_start = 0;
+        let mut dst_start = usize::from(at.y) * Self::W_USIZE + usize::from(at.x);
+        let len = usize::from(W2);
+
+        for _ in 0..H2 {
+            let src_slice = &other.words[src_start..src_start + len];
+            let dst_slice = &mut self.words[dst_start..dst_start + len];
+            *dst_slice ^= src_slice;
+
+            src_start += ArrayGrid::<W2, H2, WORDS2>::W_USIZE;
+            dst_start += Self::W_USIZE;
+        }
+
+        Ok(())
+    }
+
+    const W_USIZE: usize = W as usize;
 
     /// Clears the columns that incorrectly wrapped across row boundaries after
     /// the flat bit shift.
     ///
-    /// When `dx > 0` (east), the first `dx` columns of each row must be cleared.
-    /// When `dx < 0` (west), the last `|dx|` columns of each row must be cleared.
-    fn clear_wrapped_columns(&mut self, dx: i32) {
-        let abs_dx = dx.unsigned_abs();
-        let w = W as u32;
+    /// When `dx` is positive, the first `dx` columns are cleared.
+    /// When `dx` is negative, the last `|dx|` columns are cleared.
+    fn clear_wrapped_columns(&mut self, dx: SignedMag<NonZeroU16>) {
+        // TODO: use a range once they are copy
+        let (min, max) = match dx {
+            SignedMag::Positive(n) => (0, n.get().into()),
+            SignedMag::Negative(n) => (Self::W_USIZE - n.get().conv::<usize>(), Self::W_USIZE),
+            SignedMag::Zero => return,
+        };
 
-        for word_idx in 0..WORDS {
-            let base = word_idx as u32 * 64;
-            let mut mask = u64::MAX;
-
-            for bit in 0..64u32 {
-                let flat = base + bit;
-                if flat >= Self::CELL_COUNT {
-                    break;
-                }
-                let col = flat % w;
-                let clear = if dx > 0 { col < abs_dx } else { col >= w - abs_dx };
-                if clear {
-                    mask &= !(1u64 << bit);
-                }
-            }
-            self.words[word_idx] &= mask;
-        }
+        self.words
+            .as_mut_bitslice()
+            .chunks_mut(Self::W_USIZE)
+            .take(H as usize)
+            .for_each(|row| row[min..max].fill(false));
     }
 
     /// Negates all cells in the grid.
     pub fn negate(&mut self) {
-        self.words.iter_mut().for_each(|word| *word = !*word);
+        self.words.data.iter_mut().for_each(|word| *word = !*word);
         self.clear_trailing_bits();
     }
 
@@ -211,7 +276,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// are unused (marked by [`Self::UNUSED_TAILING_BITS`]). They will be cleared
     /// after the closure returns.
     pub fn mutate_words<R>(&mut self, f: impl FnOnce(&mut [u64]) -> R) -> R {
-        let r = f(&mut self.words);
+        let r = f(&mut self.words.data);
         self.clear_trailing_bits();
         r
     }
@@ -230,13 +295,16 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
 
     /// Clears the unused tail bits of the last word.
     const fn clear_trailing_bits(&mut self) {
-        self.words[Self::LAST_WORD] &= Self::USED_TRAILING_BITS;
+        self.words.data[Self::LAST_WORD] &= Self::USED_TRAILING_BITS;
     }
 }
 
+/// Conversion from a raw array of words.
+///
+/// Note: if `W * H` is not a multiple of 64, the trailing bits of the last word will be cleared.
 impl<const W: u16, const H: u16, const WORDS: usize> From<[u64; WORDS]> for ArrayGrid<W, H, WORDS> {
     fn from(value: [u64; WORDS]) -> Self {
-        let mut grid = Self { words: value };
+        let mut grid = Self { words: BitArray::new(value) };
         grid.clear_trailing_bits();
         grid
     }
@@ -257,5 +325,37 @@ where
 {
     fn extend<T: IntoIterator<Item = Idx>>(&mut self, iter: T) {
         iter.into_iter().map_into().for_each(|index| self.const_set(index, true));
+    }
+}
+
+impl<const W: u16, const H: u16, const WORDS: usize> FromStr for ArrayGrid<W, H, WORDS> {
+    type Err = PatternError;
+
+    /// Parses a string pattern into an [`ArrayGrid`].
+    ///
+    /// Uses `#` for set cells and `.` for unset cells.
+    /// Whitespace is ignored.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let set = '#';
+        let unset = '.';
+
+        s.chars()
+            .filter(NotWhitespace::is_not_whitespace)
+            .take(Self::CELL_COUNT_USZ)
+            .enumerate()
+            .map(|(i, c)| (ArrayIndex::try_new(i), c))
+            .try_fold((Self::EMPTY, ArrayIndex::MIN), |(mut grid, _), (i, c)| match (i, c) {
+                (Err(_), _) => Err(PatternError::TooLong),
+                (Ok(i), c) if c == set => {
+                    grid.const_set(i, true);
+                    (grid, i).into_ok()
+                }
+                (Ok(i), c) if c == unset => (grid, i).into_ok(),
+                (_, c) => PatternError::InvalidChar(c).into_err(),
+            })
+            .and_then(|(grid, index)| match index {
+                i if i.get() == Self::CELL_COUNT - 1 => Ok(grid),
+                index => PatternError::TooShort(index.get() as usize + 1).into_err(),
+            })
     }
 }

@@ -1,6 +1,7 @@
 use tap::Pipe;
 
 use crate::ext::debug_check_then;
+use crate::num::SignedMag;
 
 bounded_integer::bounded_integer! {
     /// The dimension of a vector component.
@@ -14,22 +15,6 @@ bounded_integer::bounded_integer! {
     ///
     /// The valid range is `1..=7`.
     pub struct VecMagU64(1, 7);
-}
-
-/// A signed magnitude.
-///
-/// # Type Parameters
-///
-/// - `T`: The type of the magnitude
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
-pub enum SignedMag<T> {
-    /// The magnitude is positive
-    Positive(T),
-    /// The magnitude is zero
-    #[default]
-    Zero,
-    /// The magnitude is negative
-    Negative(T),
 }
 
 impl From<VecDimU64> for SignedMag<VecMagU64> {

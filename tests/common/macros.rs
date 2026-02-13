@@ -110,6 +110,19 @@ macro_rules! test_foreach_mut {
     };
 }
 
+macro_rules! test_try_mutation {
+    ($id:ident: $ctor:expr => $method:ident $( ::< $($gen:ty),+ > )? $( ( $($arg:expr),* ) )? => ($result:expr, $expected:expr)) => {
+        #[test]
+        fn $id() -> Result<(), Box<dyn std::error::Error>> {
+            let mut val = $ctor;
+            let result = val.$method $( ::< $($gen),+ > )? ( $($($arg),*)? );
+            assert_eq!(result, $result);
+            assert_eq!(val, $expected);
+            Ok(())
+        }
+    };
+}
+
 pub(crate) use test_ctor;
 pub(crate) use test_foreach;
 pub(crate) use test_foreach_mut;
@@ -118,3 +131,4 @@ pub(crate) use test_mutation;
 pub(crate) use test_panic;
 pub(crate) use test_property;
 pub(crate) use test_transform;
+pub(crate) use test_try_mutation;
