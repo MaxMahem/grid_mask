@@ -5,13 +5,12 @@ use fluent_result::into::IntoResult;
 use tap::{Conv, Pipe};
 
 use crate::err::Discontiguous;
-use crate::grid::data::{GridData, GridDataValue};
 use crate::num::BitIndexU64;
 use crate::{Adjacency, Cardinal, GridMask, GridRect};
 
 impl<Adj: Adjacency> From<GridRect> for GridShape<Adj> {
     fn from(rect: GridRect) -> Self {
-        GridMask::from(rect).conv::<u64>().pipe(Self::new)
+        GridMask::from(rect).pipe(Self::new)
     }
 }
 
@@ -39,20 +38,25 @@ impl<Adj: Adjacency> From<GridRect> for GridShape<Adj> {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub struct GridShape<A = Cardinal, T = u64>(T, PhantomData<A>);
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, derive_more::Into, derive_more::Deref, derive_more::AsRef)]
+pub struct GridShape<A = Cardinal>(
+    #[deref]
+    #[as_ref]
+    GridMask,
+    #[into(skip)] PhantomData<A>,
+);
 
-impl<A: Adjacency, T: GridData> GridShape<A, T> {
+impl<A: Adjacency> GridShape<A> {
     /// A shape that contains all cells.
-    pub const FULL: Self = Self(T::FULL, PhantomData);
+    pub const FULL: Self = Self(GridMask::FULL, PhantomData);
 
     /// Creates a new mask
-    pub(crate) const fn new(data: T) -> Self {
+    pub(crate) const fn new(data: GridMask) -> Self {
         Self(data, PhantomData)
     }
 }
 
-impl<A: Adjacency> GridShape<A, u64> {
+impl<A: Adjacency> GridShape<A> {
     /// Creates a new [`GridShape`] from data if it is contiguous.
     ///
     /// A mask is contiguous if all set cells are connected via the adjacency rule `A`.
@@ -60,12 +64,13 @@ impl<A: Adjacency> GridShape<A, u64> {
     /// # Errors
     ///
     /// [`Discontiguous`] if the mask is not contiguous.
-    pub fn contiguous(grid: u64, seed: impl Into<BitIndexU64>) -> Result<Self, Discontiguous> {
-        match grid & (1 << seed.into().get()) {
-            0 => return grid.conv::<GridMask>().pipe(Discontiguous).into_err(),
-            _ => grid,
+    pub fn contiguous(grid: GridMask, seed: impl Into<BitIndexU64>) -> Result<Self, Discontiguous> {
+        let seed: BitIndexU64 = seed.into();
+        match grid.get(seed) {
+            false => return grid.conv::<GridMask>().pipe(Discontiguous).into_err(),
+            true => grid,
         }
-        .pipe(|seed| GrowableSeed::<A, _>::new(seed, grid))
+        .pipe(|grid| GrowableSeed::<A>::new(seed, grid))
         .connect()
         .pipe(Self::new)
         .into_ok()
@@ -74,19 +79,19 @@ impl<A: Adjacency> GridShape<A, u64> {
 
 /// A type that gurantees that `seed` is set in `mask`
 #[derive(Debug)]
-struct GrowableSeed<Adj, T> {
-    seed: T,
-    mask: T,
+struct GrowableSeed<Adj> {
+    seed: BitIndexU64,
+    mask: GridMask,
     _adj: PhantomData<Adj>,
 }
 
-impl<Adj: Adjacency, T: GridDataValue> GrowableSeed<Adj, T> {
-    const fn new(seed: T, mask: T) -> Self {
+impl<Adj: Adjacency> GrowableSeed<Adj> {
+    const fn new(seed: BitIndexU64, mask: GridMask) -> Self {
         Self { seed, mask, _adj: PhantomData }
     }
 
-    fn connect(self) -> T {
-        let mut connected = self.mask & self.seed;
+    fn connect(self) -> GridMask {
+        let mut connected = self.mask & GridMask::from(self.seed);
 
         loop {
             match Adj::connected(connected) & self.mask {
@@ -97,7 +102,7 @@ impl<Adj: Adjacency, T: GridDataValue> GrowableSeed<Adj, T> {
     }
 }
 
-impl<A: Adjacency> TryFrom<GridMask> for GridShape<A, u64> {
+impl<A: Adjacency> TryFrom<GridMask> for GridShape<A> {
     type Error = Discontiguous;
 
     /// Creates a [`GridShape`] from a [`GridMask`] if `data` is contiguous.
@@ -113,30 +118,27 @@ impl<A: Adjacency> TryFrom<GridMask> for GridShape<A, u64> {
     /// let shape: Result<GridShape, _> = mask.try_into();
     /// assert!(shape.is_ok());
     /// ```
-    fn try_from(mask: GridMask<u64>) -> Result<Self, Self::Error> {
-        let grid = mask.into();
-        let connected = BitIndexU64::from_first_set(grid)
+    fn try_from(mask: GridMask) -> Result<Self, Self::Error> {
+        let grid_u64 = mask.0;
+        let connected = BitIndexU64::from_first_set(grid_u64)
             .ok_or(Discontiguous(mask))?
-            .pipe(|seed| GrowableSeed::<A, _>::new(1 << seed.get(), grid))
+            .pipe(|seed| GrowableSeed::<A>::new(seed, mask))
             .connect();
 
         // Mask is contiguous iff connected region equals original mask
-        (connected == grid).then_some(Self(grid, PhantomData)).ok_or(Discontiguous(mask))
+        (connected == mask).then_some(Self::new(mask)).ok_or(Discontiguous(mask))
     }
 }
 
-impl<A: Adjacency> TryFrom<u64> for GridShape<A, u64> {
+impl<A: Adjacency> TryFrom<u64> for GridShape<A> {
     type Error = Discontiguous;
 
     fn try_from(mask: u64) -> Result<Self, Self::Error> {
-        //let mask = GridMask::from(mask);
-        //let shape = GridShape::try_from(mask);
-        //shape
         GridMask::from(mask).try_into()
     }
 }
 
-impl TryFrom<[bool; 64]> for GridShape<Cardinal, u64> {
+impl TryFrom<[bool; 64]> for GridShape<Cardinal> {
     type Error = Discontiguous;
 
     fn try_from(bools: [bool; 64]) -> Result<Self, Self::Error> {
@@ -146,7 +148,7 @@ impl TryFrom<[bool; 64]> for GridShape<Cardinal, u64> {
 
 // impl FromStr for GridShape {
 //     type Err = ShapePatternError;
-
+//
 //     /// Parses a string pattern into a [`GridShape`].
 //     ///
 //     /// Uses `#` for set cells and `.` for unset cells. Whitespace is ignored.

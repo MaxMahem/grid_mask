@@ -15,7 +15,7 @@ fn test_discontiguous() {
     let p1 = GridPoint::new(GridPos::new(0).unwrap(), GridPos::new(0).unwrap());
     let p2 = GridPoint::new(GridPos::new(7).unwrap(), GridPos::new(7).unwrap());
     let mut mask = GridMask::from(p1);
-    mask.set(p2);
+    mask.update(p2, true);
     let shape: Result<GridShape, _> = GridShape::try_from(mask);
     assert!(shape.is_err());
 }

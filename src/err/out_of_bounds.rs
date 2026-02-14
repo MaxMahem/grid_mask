@@ -1,4 +1,4 @@
-use bounded_integer::TryFromError;
+// use bounded_integer::TryFromError;
 
 /// An error indicating that a value is out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
@@ -12,8 +12,8 @@ impl OutOfBounds {
     }
 }
 
-impl From<TryFromError> for OutOfBounds {
-    fn from(_: TryFromError) -> Self {
-        Self
-    }
-}
+// impl From<TryFromError> for OutOfBounds {
+//     fn from(_: TryFromError) -> Self {
+//         Self
+//     }
+// }

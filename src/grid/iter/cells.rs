@@ -1,24 +1,25 @@
 use crate::ext::BoundedIter;
-use crate::grid::{GridData, GridMask};
+use crate::grid::GridMask;
+use crate::num::BitIndexU64;
 
 /// An iterator over all cells of a [`GridMask`].
 #[derive(Debug, Clone)]
-pub struct Cells<'a, T: GridData = u64> {
-    mask: &'a GridMask<T>,
-    iter: BoundedIter<T::Index>,
+pub struct Cells<'a> {
+    mask: &'a GridMask,
+    iter: BoundedIter<BitIndexU64>,
 }
 
-impl<'a, T: GridData> Cells<'a, T> {
-    pub(crate) const fn new(mask: &'a GridMask<T>) -> Self {
+impl<'a> Cells<'a> {
+    pub(crate) const fn new(mask: &'a GridMask) -> Self {
         Self { mask, iter: BoundedIter::new() }
     }
 }
 
-impl<T: GridData> Iterator for Cells<'_, T> {
+impl Iterator for Cells<'_> {
     type Item = bool;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next().map(|i| self.mask.index(i))
+        self.iter.next().map(|i| self.mask.get(i))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -26,11 +27,11 @@ impl<T: GridData> Iterator for Cells<'_, T> {
     }
 }
 
-impl<T: GridData> DoubleEndedIterator for Cells<'_, T> {
+impl DoubleEndedIterator for Cells<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.iter.next_back().map(|i| self.mask.index(i))
+        self.iter.next_back().map(|i| self.mask.get(i))
     }
 }
 
-impl<T: GridData> ExactSizeIterator for Cells<'_, T> {}
-impl<T: GridData> std::iter::FusedIterator for Cells<'_, T> {}
+impl ExactSizeIterator for Cells<'_> {}
+impl std::iter::FusedIterator for Cells<'_> {}

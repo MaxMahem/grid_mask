@@ -75,8 +75,8 @@ macro_rules! test_iter {
         fn $id() -> Result<(), Box<dyn std::error::Error>> {
             let val = $ctor;
             let result: Vec<_> = val.$method $( ::< $($gen),+ > )? ( $($($arg),*)? ).collect();
-            let expected_slice: &[bool] = $expected.as_ref();
-            assert_eq!(result.as_slice(), expected_slice);
+            let expected: Vec<_> = $expected.into_iter().collect();
+            assert_eq!(result, expected);
             Ok(())
         }
     };
@@ -96,19 +96,19 @@ macro_rules! test_foreach {
     };
 }
 
-macro_rules! test_foreach_mut {
-    ($id:ident: $ctor:expr => $method:ident($arg_name:ident in $iter:expr) => $expected:expr) => {
-        #[test]
-        fn $id() -> Result<(), Box<dyn std::error::Error>> {
-            for $arg_name in $iter {
-                let mut val = $ctor;
-                val.$method($arg_name);
-                assert_eq!(val, $expected, "Failed for input {:?}", $arg_name);
-            }
-            Ok(())
-        }
-    };
-}
+// macro_rules! test_foreach_mut {
+//     ($id:ident: $ctor:expr => $method:ident($arg_name:ident in $iter:expr) => $expected:expr) => {
+//         #[test]
+//         fn $id() -> Result<(), Box<dyn std::error::Error>> {
+//             for $arg_name in $iter {
+//                 let mut val = $ctor;
+//                 val.$method($arg_name);
+//                 assert_eq!(val, $expected, "Failed for input {:?}", $arg_name);
+//             }
+//             Ok(())
+//         }
+//     };
+// }
 
 macro_rules! test_try_mutation {
     ($id:ident: $ctor:expr => $method:ident $( ::< $($gen:ty),+ > )? $( ( $($arg:expr),* ) )? => ($result:expr, $expected:expr)) => {
@@ -125,7 +125,7 @@ macro_rules! test_try_mutation {
 
 pub(crate) use test_ctor;
 pub(crate) use test_foreach;
-pub(crate) use test_foreach_mut;
+//pub(crate) use test_foreach_mut;
 pub(crate) use test_iter;
 pub(crate) use test_mutation;
 pub(crate) use test_panic;

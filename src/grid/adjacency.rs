@@ -1,29 +1,25 @@
-use super::{GridDataValue, GridVector};
+use super::{GridMask, GridVector};
 
 /// Defines how a mask grows to include adjacent cells.
 #[sealed::sealed]
 pub trait Adjacency: Sized {
-    /// Returns a shape containing the original data plus their adjacent neighbors.
+    /// Returns a mask of all cells adjacent to `data` (including `data` itself).
     ///
     /// # Arguments
     ///
     /// * `data` - The data to grow.
     ///
-    /// # Type Parameters
-    ///
-    /// * `T` - A type that implements [`GridDataValue`]
-    ///
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{Adjacency, Cardinal};
-    /// let mask: u64 = 0b101;
+    /// # use grid_mask::{Adjacency, Cardinal, GridMask, GridPoint};
+    /// let center = GridMask::from(GridPoint::try_new(1, 1).unwrap());
+    /// let grown = Cardinal::connected(center);
     ///
-    /// let grown = Cardinal::connected(mask);
-    ///
-    /// assert_eq!(grown.count_ones(), 6);
+    /// assert_eq!(grown.count(), 5);
     /// ```
-    fn connected<T: GridDataValue>(data: T) -> T;
+    #[must_use]
+    fn connected(data: GridMask) -> GridMask;
 }
 
 /// Cardinal adjacency (North, South, East, West).
@@ -32,7 +28,7 @@ pub struct Cardinal;
 
 #[sealed::sealed]
 impl Adjacency for Cardinal {
-    fn connected<T: GridDataValue>(mask: T) -> T {
+    fn connected(mask: GridMask) -> GridMask {
         let north = mask.translate(GridVector::NORTH);
         let south = mask.translate(GridVector::SOUTH);
         let east = mask.translate(GridVector::EAST);
@@ -48,7 +44,7 @@ pub struct Octile;
 
 #[sealed::sealed]
 impl Adjacency for Octile {
-    fn connected<T: GridDataValue>(mask: T) -> T {
+    fn connected(mask: GridMask) -> GridMask {
         let n = mask.translate(GridVector::NORTH);
         let s = mask.translate(GridVector::SOUTH);
 

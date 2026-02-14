@@ -53,7 +53,13 @@ mod try_from_tuple {
     use super::*;
 
     test_ctor!(valid: Point8::try_from((3, 5)) => Ok(POINT_3_5));
-    test_ctor!(oob: Point8::try_from((8, 8)) => Err(OutOfBounds));
+    test_ctor!(oob_x: Point8::try_from((8, 0)) => Err(OutOfBounds));
+    test_ctor!(oob_y: Point8::try_from((0, 8)) => Err(OutOfBounds));
+    test_ctor!(oob_x_y: Point8::try_from((8, 8)) => Err(OutOfBounds));
+
+    test_ctor!(oob_x_fail_cast: Point8::try_from((u32::MAX, 0)) => Err(OutOfBounds));
+    test_ctor!(oob_y_fail_cast: Point8::try_from((0, u32::MAX)) => Err(OutOfBounds));
+    test_ctor!(oob_x_y_fail_cast: Point8::try_from((u32::MAX, u32::MAX)) => Err(OutOfBounds));
 }
 
 mod tuple_eq {

@@ -1,5 +1,5 @@
 use fluent_result::into::IntoResult;
-use tap::{Conv, Pipe};
+use tap::Pipe;
 
 use crate::GridVector;
 use crate::err::OutOfBounds;
@@ -60,7 +60,7 @@ impl GridPoint {
     /// ```
     #[must_use]
     pub fn new(x: GridPos, y: GridPos) -> Self {
-        (x, y).conv::<BitIndexU64>().pipe(Self)
+        BitIndexU64::at(x, y).pipe(Self)
     }
 
     /// Tries to create a new [`GridPoint`].

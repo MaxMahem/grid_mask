@@ -1,3 +1,6 @@
+use fluent_result::into::IntoOption;
+use size_hinter::SizeHint;
+
 /// A trait for types with defined minimum and maximum bounds.
 pub trait Bound: Sized + Copy + PartialEq + PartialOrd + 'static {
     /// The minimum value of the type.
@@ -28,22 +31,25 @@ pub trait Bound: Sized + Copy + PartialEq + PartialOrd + 'static {
 
 /// An iterator over values of a type that implements [`Bound`].
 #[derive(Debug, Clone)]
-pub struct BoundedIter<T: Bound> {
-    start: Option<T>,
-    end: Option<T>,
+pub struct BoundedIter<T>(Option<RangeInc<T>>);
+
+#[derive(Debug, Clone)]
+struct RangeInc<T> {
+    start: T,
+    end: T,
 }
 
 impl<T: Bound> BoundedIter<T> {
     /// Creates a new [`BoundedIter`] starting at [`Bound::MIN`] and ending at [`Bound::MAX`].
     #[must_use]
-    pub const fn new() -> Self {
-        Self { start: Some(T::MIN), end: Some(T::MAX) }
+    pub(crate) const fn new() -> Self {
+        Self(Some(RangeInc { start: T::MIN, end: T::MAX }))
     }
 }
 
-impl<T: Bound> Default for BoundedIter<T> {
-    fn default() -> Self {
-        Self::new()
+impl<T: Bound> RangeInc<T> {
+    fn len(&self) -> SizeHint {
+        SizeHint::exact(self.start.remaining() - self.end.remaining() + 1)
     }
 }
 
@@ -51,39 +57,35 @@ impl<T: Bound> Iterator for BoundedIter<T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.start?;
-
-        if Some(start) == self.end {
-            self.start = None;
-            self.end = None;
-        } else {
-            self.start = start.increment();
+        match self.0.take()? {
+            RangeInc { start, end } if start >= end => Some(start),
+            RangeInc { start, end } => match start.increment() {
+                Some(next) => {
+                    self.0 = RangeInc { start: next, end }.into_some();
+                    Some(start)
+                }
+                None => Some(start),
+            },
         }
-
-        Some(start)
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let len = match (self.start, self.end) {
-            (Some(start), Some(end)) => start.remaining() - end.remaining() + 1,
-            _ => 0,
-        };
-        (len, Some(len))
+        self.0.as_ref().map_or(SizeHint::ZERO, RangeInc::len).into()
     }
 }
 
 impl<T: Bound> DoubleEndedIterator for BoundedIter<T> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        let end = self.end?;
-
-        if Some(end) == self.start {
-            self.start = None;
-            self.end = None;
-        } else {
-            self.end = end.decrement();
+        match self.0.take()? {
+            RangeInc { start, end } if start >= end => Some(end),
+            RangeInc { start, end } => match end.decrement() {
+                Some(prev) => {
+                    self.0 = RangeInc { start, end: prev }.into_some();
+                    Some(end)
+                }
+                None => Some(end),
+            },
         }
-
-        Some(end)
     }
 }
 

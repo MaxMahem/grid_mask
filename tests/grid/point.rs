@@ -21,10 +21,10 @@ fn test_from_iter() {
 
     let mask: GridMask = coords.into_iter().collect();
 
-    assert!(mask.index(GridPoint::new(GridPos::new(0).unwrap(), GridPos::new(0).unwrap())));
-    assert!(mask.index(GridPoint::new(GridPos::new(1).unwrap(), GridPos::new(1).unwrap())));
-    assert!(mask.index(GridPoint::new(GridPos::new(7).unwrap(), GridPos::new(7).unwrap())));
-    assert!(!mask.index(GridPoint::new(GridPos::new(0).unwrap(), GridPos::new(1).unwrap())));
+    assert!(mask.get(GridPoint::new(GridPos::new(0).unwrap(), GridPos::new(0).unwrap())));
+    assert!(mask.get(GridPoint::new(GridPos::new(1).unwrap(), GridPos::new(1).unwrap())));
+    assert!(mask.get(GridPoint::new(GridPos::new(7).unwrap(), GridPos::new(7).unwrap())));
+    assert!(!mask.get(GridPoint::new(GridPos::new(0).unwrap(), GridPos::new(1).unwrap())));
 }
 
 mod extent {

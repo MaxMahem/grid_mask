@@ -9,7 +9,7 @@ type Index8 = ArrayIndex<8, 8>;
 
 const GRID8_1_1: Grid8 = {
     let mut g = Grid8::EMPTY;
-    g.const_set(Index8::const_new::<{ 8 + 1 }>(), true);
+    g.const_update(Index8::const_new::<{ 8 + 1 }>(), true);
     g
 };
 
@@ -59,7 +59,9 @@ mod properties {
 mod mutation {
     use super::*;
 
-    test_mutation!(set_0_0: Grid8::EMPTY => set(Point8::ORIGIN, true) => Grid8::from([1]));
+    test_mutation!(set_0_0: Grid8::EMPTY => update(Point8::ORIGIN, true) => Grid8::from([1]));
+    test_mutation!(unset_1_1: GRID8_1_1 => update(Point8::new(1, 1)?, false) => Grid8::EMPTY);
+
     test_mutation!(clear: Grid8::FULL => clear() => Grid8::EMPTY);
     test_mutation!(fill_true: Grid8::EMPTY => fill(true) => Grid8::FULL);
     test_mutation!(fill_false: Grid8::FULL => fill(false) => Grid8::EMPTY);
@@ -71,6 +73,10 @@ mod mutation {
         => mutate_words(|data| data.fill(u64::MAX))
         => Grid10::FULL
     );
+
+    test_mutation!(negate_empty: Grid8::EMPTY => negate() => Grid8::FULL);
+    test_mutation!(negate_full: Grid8::FULL => negate() => Grid8::EMPTY);
+    test_mutation!(negate_10: Grid10::EMPTY => negate() => Grid10::FULL);
 }
 
 mod access {
@@ -104,7 +110,7 @@ mod translation {
             . . . . . # # # # #
             . . . . . # # # # #
             . . . . . # # # # #
-        ").expect("pattern should be valid")
+        ")?
     );
     test_mutation!(
         west_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 0)) => Grid10::from_str("
@@ -118,10 +124,10 @@ mod translation {
             # # # # # . . . . .
             # # # # # . . . . .
             # # # # # . . . . .
-        ").expect("pattern should be valid")
+        ")?
     );
     test_mutation!(
-        south_5: Grid10::FULL => translate_mut(ArrayVector::new(0, 5)) => Grid10::from_str("\
+        south_5: Grid10::FULL => translate_mut(ArrayVector::new(0, 5)) => Grid10::from_str("
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
@@ -132,12 +138,12 @@ mod translation {
             # # # # # # # # # #
             # # # # # # # # # #
             # # # # # # # # # #
-        ").expect("pattern should be valid")
+        ")?
     );
 
     // Diagonal translations (5 units each axis)
     test_mutation!(
-        se_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 5)) => Grid10::from_str("\
+        se_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 5)) => Grid10::from_str("
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
@@ -147,7 +153,8 @@ mod translation {
             . . . . . # # # # #
             . . . . . # # # # #
             . . . . . # # # # #
-            . . . . . # # # # #").unwrap()
+            . . . . . # # # # #
+        ")?
     );
     test_mutation!(
         sw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 5)) => Grid10::from_str("
@@ -160,7 +167,8 @@ mod translation {
             # # # # # . . . . .
             # # # # # . . . . .
             # # # # # . . . . .
-            # # # # # . . . . .").unwrap()
+            # # # # # . . . . .
+        ")?
     );
     test_mutation!(
         ne_5: Grid10::FULL => translate_mut(ArrayVector::new(5, -5)) => Grid10::from_str("
@@ -173,7 +181,8 @@ mod translation {
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
-            . . . . . . . . . .").unwrap()
+            . . . . . . . . . .
+        ")?
     );
     test_mutation!(
         nw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, -5)) => Grid10::from_str("
@@ -186,7 +195,8 @@ mod translation {
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
-            . . . . . . . . . .").unwrap()
+            . . . . . . . . . .
+        ")?
     );
 
     macro_rules! test_oob_empty {
@@ -291,7 +301,7 @@ mod bitwise {
                 # . . . . . . . . . #
                 # . . . . . . . . . #
                 # # # # # # # # # # #
-            ").unwrap())
+            ")?)
         );
     }
 
@@ -326,7 +336,7 @@ mod bitwise {
                 . # # # # # # # # # .
                 . # # # # # # # # # .
                 . . . . . . . . . . .
-            ").unwrap())
+            ")?)
         );
 
         test_try_mutation!(
@@ -367,7 +377,7 @@ mod bitwise {
                 # . . . . . . . . . #
                 # . . . . . . . . . #
                 # # # # # # # # # # #
-            ").unwrap())
+            ")?)
         );
 
         test_try_mutation!(
@@ -376,4 +386,56 @@ mod bitwise {
             => (Ok(()), Grid11::FULL)
         );
     }
+}
+
+mod from_str {
+    use super::*;
+    use grid_mask::err::PatternError;
+
+    const VALID_STR: &str = unsafe { std::str::from_utf8_unchecked(&[b'.'; 64]) };
+    test_ctor!(valid: Grid8::from_str(VALID_STR) => Ok(Grid8::EMPTY));
+
+    const TOO_LONG_STR: &str = unsafe { std::str::from_utf8_unchecked(&[b'.'; 65]) };
+    test_ctor!(too_long: Grid8::from_str(TOO_LONG_STR) => Err(PatternError::TooLong));
+
+    const TOO_SHORT_STR: &str = unsafe { std::str::from_utf8_unchecked(&[b'.'; 63]) };
+    test_ctor!(too_short: Grid8::from_str(TOO_SHORT_STR) => Err(PatternError::TooShort(63)));
+    test_ctor!(too_short_empty: Grid8::from_str("") => Err(PatternError::TooShort(0)));
+
+    const INVALID_CHAR_STR: &str = unsafe { std::str::from_utf8_unchecked(&[b'?'; 64]) };
+    test_ctor!(invalid: Grid8::from_str(INVALID_CHAR_STR) => Err(PatternError::InvalidChar('?')));
+}
+
+mod extend {
+    use super::*;
+
+    test_mutation!(
+        empty_extend: Grid8::EMPTY
+        => extend([Point8::new(0, 0)?, Point8::new(7, 7)?])
+        => Grid8::from_iter([Point8::new(0, 0)?, Point8::new(7, 7)?])
+    );
+
+    test_mutation!(
+        non_empty_extend: GRID8_1_1
+        => extend([Point8::new(2, 2)?])
+        => Grid8::from_iter([Point8::new(1, 1)?, Point8::new(2, 2)?])
+    );
+
+    test_mutation!(
+        duplicate_extend: Grid8::EMPTY
+        => extend([Point8::new(1, 1)?, Point8::new(1, 1)?])
+        => GRID8_1_1
+    );
+
+    test_mutation!(
+        empty_iterator: Grid8::FULL
+        => extend(std::iter::empty::<Point8>())
+        => Grid8::FULL
+    );
+
+    test_mutation!(
+        index_extend: Grid8::EMPTY
+        => extend([Index8::MIN, Index8::MAX])
+        => Grid8::from_iter([Point8::MIN, Point8::new(7, 7)?])
+    );
 }

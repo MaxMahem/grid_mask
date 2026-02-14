@@ -94,11 +94,18 @@ where
     }
 }
 
-impl<const W: u16, const H: u16> TryFrom<(u16, u16)> for ArrayPoint<W, H> {
+impl<N1, N2, const W: u16, const H: u16> TryFrom<(N1, N2)> for ArrayPoint<W, H>
+where
+    N1: TryInto<u16>,
+    N2: TryInto<u16>,
+{
     type Error = OutOfBounds;
 
-    fn try_from(value: (u16, u16)) -> Result<Self, Self::Error> {
-        Self::new(value.0, value.1)
+    fn try_from(value: (N1, N2)) -> Result<Self, Self::Error> {
+        Self::new(
+            value.0.try_into().map_err(OutOfBounds::new_from)?,
+            value.1.try_into().map_err(OutOfBounds::new_from)?,
+        )
     }
 }
 

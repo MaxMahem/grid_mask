@@ -20,4 +20,4 @@ pub mod err;
 
 pub use array::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
 pub use grid::{Adjacency, Cardinal, Octile};
-pub use grid::{GridDelta, GridIndex, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};
+pub use grid::{GridDelta, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};

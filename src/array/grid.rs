@@ -2,6 +2,7 @@ use std::num::NonZeroU16;
 use std::str::FromStr;
 
 use bitvec::prelude::{BitArray, Lsb0};
+use bitvec::slice::ChunksExact;
 use fluent_result::bool::Then;
 use fluent_result::into::IntoResult;
 use itertools::Itertools;
@@ -12,6 +13,8 @@ use crate::err::{OutOfBounds, PatternError};
 use crate::ext::{FoldMut, NotWhitespace};
 use crate::num::SignedMag;
 use crate::{ArrayIndex, ArrayPoint, ArrayVector};
+
+use super::{Cells, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[readonly::make]
@@ -51,7 +54,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// The total number of cells in the grid.
     pub const CELL_COUNT: u32 = W as u32 * H as u32;
 
-    const CELL_COUNT_USZ: usize = Self::CELL_COUNT as usize;
+    pub(crate) const CELL_COUNT_USZ: usize = Self::CELL_COUNT as usize;
     const WORD_BITS: usize = u64::BITS as usize;
 
     /// The number of `u64` words used to store the grid data.
@@ -83,18 +86,37 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     }
 
     /// Returns an iterator over all cells in the grid.
-    pub fn cells(&self) -> impl Iterator<Item = bool> + '_ {
-        (0..Self::CELL_COUNT).map_while(|i| self.words.get(i as usize).as_deref().copied())
+    #[must_use]
+    pub const fn cells(&self) -> Cells<'_, W, H, WORDS> {
+        Cells::new(self)
     }
 
-    /// Sets the cell at `index` to `value`.
-    pub fn set<Idx: Into<ArrayIndex<W, H>>>(&mut self, index: Idx, value: bool) {
-        self.const_set(index.into(), value);
+    /// Returns an iterator over the positions of all set cells in the grid.
+    #[must_use]
+    pub fn points(&self) -> Points<'_, W, H, WORDS> {
+        Points::new(self)
     }
 
-    /// Sets the cell at `index` to `value`.
+    /// Returns an iterator over the positions of all unset cells in the grid.
+    #[must_use]
+    pub fn spaces(&self) -> Spaces<'_, W, H, WORDS> {
+        Spaces::new(self)
+    }
+
+    /// Returns an iterator over the positions of all set cells in the grid.
+    #[must_use]
+    pub fn iter(&self) -> Points<'_, W, H, WORDS> {
+        self.points()
+    }
+
+    /// Updates the cell at `index` to `value`.
+    pub fn update<Idx: Into<ArrayIndex<W, H>>>(&mut self, index: Idx, value: bool) {
+        self.const_update(index.into(), value);
+    }
+
+    /// Updates the cell at `index` to `value`.
     // TODO: Remove when const traits stabilize
-    pub const fn const_set(&mut self, index: ArrayIndex<W, H>, value: bool) {
+    pub const fn const_update(&mut self, index: ArrayIndex<W, H>, value: bool) {
         match (index.word_and_bit(), value) {
             ((word, bit), true) => self.words.data[word] |= 1u64 << bit,
             ((word, bit), false) => self.words.data[word] &= !(1u64 << bit),
@@ -150,6 +172,10 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
             .then_err(OutOfBounds)
     }
 
+    fn iter_rows(&self) -> ChunksExact<'_, u64, Lsb0> {
+        self.words.chunks_exact(Self::W_USIZE)
+    }
+
     /// Performs a logical AND operation with another grid at the specified point.
     ///
     /// Only the intersection of the two grids is affected.
@@ -165,18 +191,15 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     ) -> Result<(), OutOfBounds> {
         Self::ensure_fits(other, at)?;
 
-        let mut src_start = 0;
         let mut dst_start = usize::from(at.y) * Self::W_USIZE + usize::from(at.x);
         let len = usize::from(W2);
 
-        for _ in 0..H2 {
-            let src_slice = &other.words[src_start..src_start + len];
+        std::iter::zip(other.iter_rows(), 0..H2).for_each(|(src_row, _)| {
             let dst_slice = &mut self.words[dst_start..dst_start + len];
-            *dst_slice &= src_slice;
+            *dst_slice &= src_row;
 
-            src_start += ArrayGrid::<W2, H2, WORDS2>::W_USIZE;
             dst_start += Self::W_USIZE;
-        }
+        });
 
         Ok(())
     }
@@ -227,16 +250,21 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
 
         let mut src_start = 0;
         let mut dst_start = usize::from(at.y) * Self::W_USIZE + usize::from(at.x);
-        let len = usize::from(W2);
 
-        for _ in 0..H2 {
-            let src_slice = &other.words[src_start..src_start + len];
-            let dst_slice = &mut self.words[dst_start..dst_start + len];
+        // let w2: usize = W2 as usize;
+        // let h2: usize = H2 as usize;
+
+        // let src_rows = (0..h2).map(|row| row * w2).map(move |row| &other.words[row..row + w2]);
+        // let dst_rows = (0..h2).map(|row| row * w2).map(|row| &mut self.words[row..row + w2])
+
+        (0..H2).for_each(|_| {
+            let src_slice = &other.words[src_start..src_start + ArrayGrid::<W2, H2, WORDS2>::W_USIZE];
+            let dst_slice = &mut self.words[dst_start..dst_start + ArrayGrid::<W2, H2, WORDS2>::W_USIZE];
             *dst_slice ^= src_slice;
 
             src_start += ArrayGrid::<W2, H2, WORDS2>::W_USIZE;
             dst_start += Self::W_USIZE;
-        }
+        });
 
         Ok(())
     }
@@ -315,7 +343,16 @@ where
     Idx: Into<ArrayIndex<W, H>>,
 {
     fn from_iter<T: IntoIterator<Item = Idx>>(iter: T) -> Self {
-        iter.into_iter().map_into().fold_mut(Self::EMPTY, |grid, index| grid.const_set(index, true))
+        iter.into_iter().map_into().fold_mut(Self::EMPTY, |grid, index| grid.const_update(index, true))
+    }
+}
+
+impl<'a, const W: u16, const H: u16, const WORDS: usize> IntoIterator for &'a ArrayGrid<W, H, WORDS> {
+    type Item = ArrayPoint<W, H>;
+    type IntoIter = Points<'a, W, H, WORDS>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.points()
     }
 }
 
@@ -324,7 +361,7 @@ where
     Idx: Into<ArrayIndex<W, H>>,
 {
     fn extend<T: IntoIterator<Item = Idx>>(&mut self, iter: T) {
-        iter.into_iter().map_into().for_each(|index| self.const_set(index, true));
+        iter.into_iter().map_into().for_each(|index| self.const_update(index, true));
     }
 }
 
@@ -336,26 +373,23 @@ impl<const W: u16, const H: u16, const WORDS: usize> FromStr for ArrayGrid<W, H,
     /// Uses `#` for set cells and `.` for unset cells.
     /// Whitespace is ignored.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let set = '#';
-        let unset = '.';
-
         s.chars()
             .filter(NotWhitespace::is_not_whitespace)
-            .take(Self::CELL_COUNT_USZ)
+            .take(Self::CELL_COUNT_USZ + 1)
             .enumerate()
             .map(|(i, c)| (ArrayIndex::try_new(i), c))
-            .try_fold((Self::EMPTY, ArrayIndex::MIN), |(mut grid, _), (i, c)| match (i, c) {
+            .try_fold((Self::EMPTY, None), |(mut grid, _), (i, c)| match (i, c) {
                 (Err(_), _) => Err(PatternError::TooLong),
-                (Ok(i), c) if c == set => {
-                    grid.const_set(i, true);
-                    (grid, i).into_ok()
+                (Ok(i), '#') => {
+                    grid.const_update(i, true);
+                    (grid, Some(i)).into_ok()
                 }
-                (Ok(i), c) if c == unset => (grid, i).into_ok(),
+                (Ok(i), '.') => (grid, Some(i)).into_ok(),
                 (_, c) => PatternError::InvalidChar(c).into_err(),
             })
-            .and_then(|(grid, index)| match index {
-                i if i.get() == Self::CELL_COUNT - 1 => Ok(grid),
-                index => PatternError::TooShort(index.get() as usize + 1).into_err(),
+            .and_then(|(grid, index)| match index.map_or(0, |i| i.get() + 1) {
+                i if i == Self::CELL_COUNT => Ok(grid),
+                i => PatternError::TooShort(i).into_err(),
             })
     }
 }

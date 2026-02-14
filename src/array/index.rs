@@ -84,7 +84,7 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
 
     /// Returns the raw index value.
     #[must_use]
-    pub const fn get(&self) -> u32 {
+    pub const fn get(self) -> u32 {
         self.0
     }
 
@@ -105,5 +105,24 @@ impl<const W: u16, const H: u16> From<ArrayPoint<W, H>> for ArrayIndex<W, H> {
             .map_into()
             .pipe(|(x, y): (u32, u32)| y * Self::W_U32 + x)
             .pipe(Self)
+    }
+}
+
+impl<const W: u16, const H: u16> crate::ext::Bound for ArrayIndex<W, H> {
+    const MIN: Self = Self::MIN;
+    const MAX: Self = Self::MAX;
+
+    const COUNT: usize = W as usize * H as usize;
+
+    fn increment(&self) -> Option<Self> {
+        self.0.checked_add(1).and_then(|i| Self::new(i).ok())
+    }
+
+    fn decrement(&self) -> Option<Self> {
+        self.0.checked_sub(1).and_then(|i| Self::new(i).ok())
+    }
+
+    fn remaining(&self) -> usize {
+        (Self::MAX.0 - self.0) as usize
     }
 }

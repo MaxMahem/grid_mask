@@ -5,19 +5,17 @@ use std::str::FromStr;
 use fluent_result::bool::Then;
 use fluent_result::into::{IntoOption, IntoResult};
 use itertools::Itertools;
-use tap::{Conv, Pipe};
+use tap::{Conv, Pipe, TryConv};
 
 use crate::err::PatternError;
 use crate::ext::NotWhitespace;
 use crate::ext::bits::{BitZeros, FromBitRange, OccupiedBitSpan};
 use crate::ext::range::RangeLength;
-use crate::grid::{Cells, GridData, GridDataMut, GridDataValue, Points, Spaces};
-use crate::num::{BitIndexU8, BitIndexU64};
-use crate::{Adjacency, GridIndex, GridPoint, GridRect, GridSize, GridVector};
+use crate::grid::{Cells, Points, Spaces};
+use crate::num::{BitIndexU8, BitIndexU64, GridLen, GridPos, SignedMag, VecMagU64};
+use crate::{Adjacency, GridDelta, GridPoint, GridRect, GridSize, GridVector};
 
 /// An immutable mask of cells on a 8x8 grid.
-///
-/// Generic over the backing storage type `T`, which defaults to `u64`.
 #[derive(
     Debug,
     Copy,
@@ -27,6 +25,7 @@ use crate::{Adjacency, GridIndex, GridPoint, GridRect, GridSize, GridVector};
     Default,
     Hash,
     derive_more::From,
+    derive_more::Into,
     derive_more::BitAnd,
     derive_more::BitAndAssign,
     derive_more::BitOr,
@@ -36,57 +35,109 @@ use crate::{Adjacency, GridIndex, GridPoint, GridRect, GridSize, GridVector};
     derive_more::Not,
     // derive_more::Constructor,
 )]
-pub struct GridMask<T = u64>(pub(crate) T);
+pub struct GridMask(pub u64);
 
-impl<T> GridMask<T> {
-    /// Creates a new [`GridMask`] from a value.
-    pub const fn new(value: T) -> Self {
-        Self(value)
-    }
-}
-
-impl<T: GridData> GridMask<T> {
+impl GridMask {
     /// An empty mask.
-    pub const EMPTY: Self = Self(T::EMPTY);
+    pub const EMPTY: Self = Self(0);
     /// A full mask.
-    pub const FULL: Self = Self(T::FULL);
+    pub const FULL: Self = Self(u64::MAX);
 
     /// The number of rows in the mask.
-    pub const ROWS: T::RowLen = T::ROWS;
+    pub const ROWS: GridLen = GridLen::const_new::<8>();
     /// The number of columns in the mask.
-    pub const COLS: T::ColLen = T::COLS;
+    pub const COLS: GridLen = GridLen::const_new::<8>();
 
-    delegate::delegate! {
-        to self.0 {
-            /// Returns the number of set cells.
-            pub fn count(&self) -> usize;
-            /// Returns the state of the cell at `index`.
-            pub fn index<Idx: GridIndex<T>>(&self, index: Idx) -> bool;
+    /// A bitmask of the first column.
+    pub(crate) const COL_FIRST: u64 = 0x0101_0101_0101_0101;
+
+    /// Returns the number of set cells.
+    #[must_use]
+    pub const fn count(&self) -> usize {
+        self.0.count_ones() as usize
+    }
+
+    /// Returns the state of the cell at `index`.
+    pub fn get<Idx: Into<BitIndexU64>>(&self, index: Idx) -> bool {
+        (*self & index.into().conv::<Self>()) != Self::EMPTY
+    }
+
+    /// Updates the cell at `index` to `value`.
+    pub fn update<Idx: Into<BitIndexU64>>(&mut self, index: Idx, value: bool) {
+        *self = self.with(index, value);
+    }
+
+    /// Returns a new mask with the cell at `index` set to `value`.
+    #[must_use]
+    pub fn with<Idx: Into<BitIndexU64>>(self, index: Idx, value: bool) -> Self {
+        if value { self.const_set::<true>(index.into()) } else { self.const_set::<false>(index.into()) }
+    }
+
+    /// Sets a new mask with the cell at `index` set to `value`.
+    #[must_use]
+    const fn const_set<const VALUE: bool>(self, index: BitIndexU64) -> Self {
+        match (VALUE, 1 << index.get()) {
+            (true, bit) => Self(self.0 | bit),
+            (false, bit) => Self(self.0 & !bit),
         }
+    }
+
+    const COLS_U32: u32 = 8;
+
+    /// Returns a new mask translated by `delta`.
+    #[must_use]
+    pub fn translate(&self, delta: GridVector) -> Self {
+        delta
+            .try_conv::<GridDelta<VecMagU64>>()
+            .map_or(0, |delta| {
+                let data = self.0;
+
+                let data_shifted_y = match delta.y {
+                    SignedMag::Positive(dy) => data << (dy.get().conv::<u32>() * Self::COLS_U32),
+                    SignedMag::Negative(dy) => data >> (dy.get().conv::<u32>() * Self::COLS_U32),
+                    SignedMag::Zero => data,
+                };
+
+                match delta.x {
+                    SignedMag::Positive(dx) => {
+                        let mask_shifted_x_y = data_shifted_y << dx.get();
+
+                        let col_mask = u8::from_bit_range(..dx).conv::<u64>() * Self::COL_FIRST;
+
+                        mask_shifted_x_y & !col_mask
+                    }
+                    SignedMag::Negative(dx) => {
+                        let col_mask = u8::from_bit_range(..dx).conv::<u64>() * Self::COL_FIRST;
+                        (data_shifted_y & !col_mask) >> dx.get()
+                    }
+                    SignedMag::Zero => data_shifted_y,
+                }
+            })
+            .pipe(Self)
     }
 
     /// Returns `true` if the mask is [`EMPTY`](Self::EMPTY).
     #[must_use]
-    pub fn is_empty(&self) -> bool {
-        self.0 == T::EMPTY
+    pub const fn is_empty(&self) -> bool {
+        self.0 == 0
     }
 
     /// Returns `true` if the mask is [`FULL`](Self::FULL).
     #[must_use]
-    pub fn is_full(&self) -> bool {
-        self.0 == T::FULL
+    pub const fn is_full(&self) -> bool {
+        self.0 == u64::MAX
     }
 
     /// Returns an iterator over all cells of the mask.
     ///
     /// Iterates from the top-left cell (`(0, 0)`) to the bottom-right cell
-    /// (`(T::COLS - 1, T::ROWS - 1)`).
+    /// (`(7, 7)`).
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use grid_mask::GridMask;
-    /// let mask = GridMask::new(0b101);
+    /// let mask = GridMask(0b101);
     ///
     /// let mut cells = mask.cells();
     ///
@@ -96,50 +147,9 @@ impl<T: GridData> GridMask<T> {
     /// assert_eq!(cells.nth(60), Some(false));
     /// ```
     #[must_use]
-    pub const fn cells(&self) -> Cells<'_, T> {
+    pub const fn cells(&self) -> Cells<'_> {
         Cells::new(self)
     }
-}
-
-impl<T: GridDataMut> GridMask<T> {
-    delegate::delegate! {
-        to self.0 {
-            /// Sets the cell at `index`.
-            pub fn set<Idx: GridIndex<T>>(&mut self, index: Idx);
-            /// Unsets the cell at `index`.
-            pub fn unset<Idx: GridIndex<T>>(&mut self, index: Idx);
-            /// Translates the mask by `delta` in place.
-            pub fn translate_mut(&mut self, delta: GridVector);
-            /// Negates all cells in the mask in place.
-            pub fn negate(&mut self);
-        }
-    }
-}
-
-impl<T: GridDataValue> GridMask<T> {
-    delegate::delegate! {
-        to self.0 {
-            /// Returns a new mask with the cell at `index` set.
-            #[must_use]
-            #[expr(Self($))]
-            pub fn with_set<Idx: GridIndex<T>>(&self, index: Idx) -> Self;
-
-            /// Returns a new mask with the cell at `index` unset.
-            #[must_use]
-            #[expr(Self($))]
-            pub fn with_unset<Idx: GridIndex<T>>(&self, index: Idx) -> Self;
-
-            /// Returns a new mask translated by `delta`.
-            #[must_use]
-            #[expr(Self($))]
-            pub fn translate(&self, delta: GridVector) -> Self;
-        }
-    }
-}
-
-impl GridMask<u64> {
-    /// A bitmask of the first column.
-    pub(crate) const COL_FIRST: u64 = 0x0101_0101_0101_0101;
 
     /// Returns a [`GridMask`] of all points connected to `seed` within the current mask
     /// using the provided [`Adjacency`].
@@ -169,9 +179,9 @@ impl GridMask<u64> {
         match seed.into().conv::<Self>() & self {
             connected if connected.is_empty() => Self::EMPTY,
             mut connected => loop {
-                match A::connected(connected.0) & self.0 {
-                    grown if grown == connected.0 => break connected,
-                    grown => connected = Self(grown),
+                match A::connected(connected) & self {
+                    grown if grown == connected => break connected,
+                    grown => connected = grown,
                 }
             },
         }
@@ -202,7 +212,7 @@ impl GridMask<u64> {
     /// ```
     #[must_use]
     pub fn grow<A: Adjacency>(self) -> Self {
-        A::connected::<u64>(self.0).pipe(Self)
+        A::connected(self)
     }
 
     /// Returns an iterator over the positions of all set cells of the mask.
@@ -214,7 +224,7 @@ impl GridMask<u64> {
     ///
     /// ```rust
     /// # use grid_mask::{GridMask, GridPoint};
-    /// let mask = GridMask::new(0b101);
+    /// let mask = GridMask(0b101);
     /// let points: Vec<_> = mask.points().collect();
     ///
     /// assert_eq!(points.len(), 2);
@@ -235,7 +245,7 @@ impl GridMask<u64> {
     ///
     /// ```rust
     /// # use grid_mask::{GridMask, GridPoint};
-    /// let mask = GridMask::FULL.with_unset(GridPoint::ORIGIN);
+    /// let mask = GridMask::FULL.with(GridPoint::ORIGIN, false);
     /// let spaces: Vec<GridPoint> = mask.spaces().collect();
     ///
     /// assert_eq!(spaces.len(), 1);
@@ -255,7 +265,7 @@ impl GridMask<u64> {
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// assert_eq!(GridMask::EMPTY.occupied_cols(), 0b0000_0000);
     /// assert_eq!(GridMask::FULL.occupied_cols(), 0b1111_1111);
-    /// assert_eq!(GridMask::new(1 | 1 << 63).occupied_cols(), 0b1000_0001);
+    /// assert_eq!(GridMask(1 | 1 << 63).occupied_cols(), 0b1000_0001);
     /// assert_eq!(GridMask::try_from(GridPoint::ORIGIN)?.occupied_cols(), 0b0000_0001);
     /// # Ok(())
     /// # }
@@ -277,7 +287,7 @@ impl GridMask<u64> {
     /// # use grid_mask::GridMask;
     /// assert_eq!(GridMask::EMPTY.occupied_rows(), 0b0000_0000);
     /// assert_eq!(GridMask::FULL.occupied_rows(), 0b1111_1111);
-    /// assert_eq!(GridMask::new(1 | 1 << 63).occupied_rows(), 0b1000_0001);
+    /// assert_eq!(GridMask(1 | 1 << 63).occupied_rows(), 0b1000_0001);
     /// ```
     #[must_use]
     pub const fn occupied_rows(&self) -> u8 {
@@ -308,7 +318,7 @@ impl GridMask<u64> {
     /// # use grid_mask::{GridMask, GridRect};
     /// assert_eq!(GridMask::EMPTY.bounds(), None);
     /// assert_eq!(GridMask::FULL.bounds(), Some(GridRect::MAX));
-    /// assert_eq!(GridMask::new(1 | 1 << 63).bounds(), Some(GridRect::MAX));
+    /// assert_eq!(GridMask(1 | 1 << 63).bounds(), Some(GridRect::MAX));
     /// ```
     #[must_use]
     pub fn bounds(&self) -> Option<GridRect> {
@@ -372,78 +382,6 @@ impl GridMask<u64> {
         BitIndexU64::from_first_set(self.0).is_some_and(|seed| self.contiguous::<A>(seed) == *self)
     }
 
-    /// Creates a [`GridMask`] from a string pattern.
-    ///
-    /// The pattern must contain exactly 64 characters matching either `set` or `unset`,
-    /// ignoring any whitespace.
-    ///
-    /// # Arguments
-    ///
-    /// * `pattern` - The string pattern to parse.
-    /// * `set` - The character representing a set bit.
-    /// * `unset` - The character representing an unset bit.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    ///
-    /// * The pattern contains characters other than `set`, `unset`, or whitespace.
-    ///   ([`PatternError::InvalidChar`])
-    /// * The pattern contains too many or less than 64 valid characters.
-    ///   ([`PatternError::TooLong`], [`PatternError::TooShort`])
-    ///
-    /// # Panics
-    ///
-    /// Panics if:
-    /// * `set` is equal to `unset`
-    /// * `set` or `unset` are [whitespace](char::is_whitespace)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # use grid_mask::{GridMask, GridPoint};
-    /// let pattern = "
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . . # # . . . .
-    ///     . . # # . . . .
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    ///     . . . . . . . .
-    /// ";
-    ///
-    /// let mask = GridMask::from_pattern(pattern, '#', '.')?;
-    ///
-    /// let points: Vec<(u8, u8)> = mask.points().map(Into::into).collect();
-    /// assert_eq!(points, [(2, 2), (3, 2), (2, 3), (3, 3)]);
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn from_pattern<S: AsRef<str>>(pattern: S, set: char, unset: char) -> Result<Self, PatternError> {
-        assert!(set != unset, "set and unset must be different");
-        assert!(!set.is_whitespace(), "set cannot be whitespace");
-        assert!(!unset.is_whitespace(), "unset cannot be whitespace");
-
-        pattern
-            .as_ref()
-            .chars()
-            .filter(NotWhitespace::is_not_whitespace)
-            .enumerate()
-            .take(65)
-            .try_fold((Self::EMPTY, 0), |(mask, _), (i, c)| match (i, c) {
-                (64.., _) => Err(PatternError::TooLong),
-                (i, c) if c == set => (mask | Self(1 << i), i).into_ok(),
-                (i, c) if c == unset => (mask, i).into_ok(),
-                (_, c) => PatternError::InvalidChar(c).into_err(),
-            })
-            .and_then(|(mask, index)| match index {
-                63 => Ok(mask),
-                index => PatternError::TooShort(index + 1).into_err(),
-            })
-    }
-
     /// Return a [`Display`](std::fmt::Display) implementation that visualizes the mask.
     ///
     /// # Arguments
@@ -464,19 +402,19 @@ impl GridMask<u64> {
     }
 }
 
-impl From<GridMask<Self>> for u64 {
-    fn from(value: GridMask<Self>) -> Self {
-        value.0
-    }
-}
+// impl From<GridMask> for u64 {
+//     fn from(value: GridMask) -> Self {
+//         value.0
+//     }
+// }
 
-impl<I: Into<Self>> FromIterator<I> for GridMask<u64> {
+impl<I: Into<Self>> FromIterator<I> for GridMask {
     fn from_iter<T: IntoIterator<Item = I>>(iter: T) -> Self {
         iter.into_iter().map_into().fold(Self::EMPTY, |mask, item| mask | item)
     }
 }
 
-impl IntoIterator for GridMask<u64> {
+impl IntoIterator for GridMask {
     type Item = GridPoint;
     type IntoIter = Points;
 
@@ -485,48 +423,43 @@ impl IntoIterator for GridMask<u64> {
     }
 }
 
-impl From<GridRect> for GridMask<u64> {
+impl From<GridRect> for GridMask {
     fn from(rect: GridRect) -> Self {
-        let (x2, y2): (BitIndexU8, _) = rect.bottom_right().into();
-        let (x1, y1): (BitIndexU8, _) = rect.point().into();
+        let (x2, y2): (BitIndexU8, GridPos) = rect.bottom_right().into();
+        let (x1, y1): (BitIndexU8, GridPos) = rect.point().into();
 
-        let row_mask = u8::from_bit_range(x1..=x2);
+        let col_mask = u8::from_bit_range(x1..=x2).conv::<u64>() * Self::COL_FIRST;
 
-        (y1..=y2)
-            .map(|row: u8| row * Self::ROWS)
-            .map(|row_start| u64::from(row_mask) << row_start)
-            .fold(0u64, std::ops::BitOr::bitor)
-            .pipe(Self)
+        let start = BitIndexU64::at(GridPos::MIN, y1);
+        let end = BitIndexU64::at(GridPos::MAX, y2);
+        let row_mask = u64::from_bit_range(start..=end);
+
+        Self(col_mask & row_mask)
     }
 }
 
-impl From<BitIndexU64> for GridMask<u64> {
+impl From<BitIndexU64> for GridMask {
     fn from(idx: BitIndexU64) -> Self {
         Self(1u64 << idx.get())
     }
 }
 
-impl From<GridPoint> for GridMask<u64> {
+impl From<GridPoint> for GridMask {
     fn from(pos: GridPoint) -> Self {
         Self(1u64 << pos.0.get())
     }
 }
 
-impl From<[bool; 64]> for GridMask<u64> {
+impl From<[bool; 64]> for GridMask {
     fn from(bools: [bool; 64]) -> Self {
-        #[expect(clippy::cast_possible_truncation, reason = "i is always <= 63")]
-        bools
-            .iter()
-            .enumerate()
-            .filter_map(|(i, &set)| set.then_some(i))
-            // Safety: i is always <= 63, so it is always a valid GridIndexU64
-            .map(|i| unsafe { BitIndexU64::new_unchecked(i as u8) })
+        std::iter::zip(bools, BitIndexU64::all_values())
+            .filter_map(|(set, i)| set.then_some(i))
             .map_into()
             .fold(Self::EMPTY, |mask, i| mask | i)
     }
 }
 
-impl FromStr for GridMask<u64> {
+impl FromStr for GridMask {
     type Err = PatternError;
 
     /// Parses a string pattern into a [`GridMask`].
@@ -564,6 +497,20 @@ impl FromStr for GridMask<u64> {
     /// # }
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_pattern(s, '#', '.')
+        s.chars()
+            .filter(NotWhitespace::is_not_whitespace)
+            .take(65)
+            .enumerate()
+            .map(|(i, c)| (BitIndexU64::try_from(i), c))
+            .try_fold((Self::EMPTY, None), |(mask, _), (i, c)| match (i, c) {
+                (Err(_), _) => Err(PatternError::TooLong),
+                (Ok(i), '#') => (mask | i.into(), Some(i)).into_ok(),
+                (Ok(i), '.') => (mask, Some(i)).into_ok(),
+                (_, c) => PatternError::InvalidChar(c).into_err(),
+            })
+            .and_then(|(mask, index)| match index.map_or(0, |i| i.get() + 1) {
+                64 => Ok(mask),
+                index => index.conv::<u32>().pipe(PatternError::TooShort).into_err(),
+            })
     }
 }

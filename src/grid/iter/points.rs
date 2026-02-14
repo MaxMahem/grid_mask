@@ -7,7 +7,7 @@ use crate::num::{BitIndexU64, SetBitsIter};
 pub struct Points(SetBitsIter);
 
 impl Points {
-    pub(crate) fn new(mask: GridMask<u64>) -> Self {
+    pub(crate) fn new(mask: GridMask) -> Self {
         Self(BitIndexU64::iter_set_bits(mask.0))
     }
 }

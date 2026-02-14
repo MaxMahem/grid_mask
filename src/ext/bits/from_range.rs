@@ -68,15 +68,15 @@ where
     }
 }
 
-impl<T> FromBitRange<RangeFrom<T>> for u8
-where
-    T: Into<BitIndexU8>,
-{
-    fn from_bit_range(range: RangeFrom<T>) -> Self {
-        const EXCLUSIVE_MAX: u32 = (BitIndexU8::MAX.get() + 1) as u32;
-        generate_mask_u8(range.start.into().into()..EXCLUSIVE_MAX)
-    }
-}
+// impl<T> FromBitRange<RangeFrom<T>> for u8
+// where
+//     T: Into<BitIndexU8>,
+// {
+//     fn from_bit_range(range: RangeFrom<T>) -> Self {
+//         const EXCLUSIVE_MAX: u32 = (BitIndexU8::MAX.get() + 1) as u32;
+//         generate_mask_u8(range.start.into().into()..EXCLUSIVE_MAX)
+//     }
+// }
 
 impl<T> FromBitRange<RangeTo<T>> for u8
 where

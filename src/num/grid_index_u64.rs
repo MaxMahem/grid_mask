@@ -5,7 +5,6 @@ use size_hinter::SizeHint;
 use tap::Pipe;
 
 use crate::ext::bits::UnsetBit;
-use crate::ext::debug_check_then;
 use crate::ext::{Bound, BoundedIter};
 use crate::num::GridPos;
 
@@ -114,14 +113,16 @@ pub type BitIndexIter = BoundedIter<BitIndexU64>;
 //     }
 // }
 
-impl From<(GridPos, GridPos)> for BitIndexU64 {
-    fn from((x, y): (GridPos, GridPos)) -> Self {
+impl BitIndexU64 {
+    /// Creates a new [`BitIndexU64`] from grid coordinates `(x, y)`.
+    ///
+    /// This is equivalent to `y * 8 + x`.
+    #[must_use]
+    pub const fn at(x: GridPos, y: GridPos) -> Self {
         let index = y.get() * 8 + x.get();
-        debug_check_then!(
-            // Safety: index is always <= 63, so it is always a valid GridIndexU64
-            index <= 63 => unsafe { Self::new_unchecked(index) },
-            "index ({index}) must be <= 63"
-        )
+        // Safety: The coordinates `x` and `y` are guaranteed to be in `0..=7`,
+        // so the resulting index `y * 8 + x` is always in `0..=63`.
+        unsafe { Self::new_unchecked(index) }
     }
 }
 

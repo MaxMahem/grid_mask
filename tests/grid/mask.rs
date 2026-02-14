@@ -1,18 +1,18 @@
 use grid_mask::{Cardinal, GridMask, GridPoint, GridVector, Octile};
 use std::str::FromStr;
 
-use crate::macros::{test_ctor, test_iter, test_mutation, test_panic, test_property};
+use crate::macros::{test_ctor, test_iter, test_mutation, test_property};
 
-test_ctor!(grid_mask_new: u64::from(GridMask::new(12345)) => 12345);
+test_ctor!(grid_mask_new: u64::from(GridMask::from(12345)) => 12345);
 
 const fn mask_from_coords(x: u8, y: u8) -> GridMask {
     assert!(x < 8);
     assert!(y < 8);
-    GridMask::new(1u64 << (x + y * 8))
+    GridMask(1u64 << (x + y * 8))
 }
 
 const fn mask_from_point(point: GridPoint) -> GridMask {
-    GridMask::new(1u64 << point.0.get())
+    GridMask(1u64 << point.0.get())
 }
 
 const POINT_4_4: GridPoint = GridPoint::const_new::<4, 4>();
@@ -58,7 +58,7 @@ mod pattern_data {
         . . . . # . . .
     ";
 
-    pub const DISCONNECTED_MASK: GridMask = GridMask::new(1 | (1 << 63));
+    pub const DISCONNECTED_MASK: GridMask = GridMask(1 | (1 << 63));
 
     pub const TOO_LONG: &str = ".................................................................";
 
@@ -83,32 +83,32 @@ mod pattern_data {
 mod set_unset {
     use super::*;
 
-    test_mutation!(set: GridMask::<u64>::EMPTY => set(POINT_4_4.0) => MASK_4_4);
-    test_mutation!(unset: MASK_4_4 => unset(POINT_4_4.0) => GridMask::EMPTY);
+    test_mutation!(set: GridMask::EMPTY => update(POINT_4_4.0, true) => MASK_4_4);
+    test_mutation!(unset: MASK_4_4 => update(POINT_4_4.0, false) => GridMask::EMPTY);
 }
 
-mod index {
+mod get {
     use super::*;
 
-    test_property!(empty: GridMask::<u64>::EMPTY => index(POINT_4_4.0) => false);
-    test_property!(set: GridMask::<u64>::new(1u64 << 36) => index(POINT_4_4.0) => true);
+    test_property!(empty: GridMask::EMPTY => get(POINT_4_4.0) => false);
+    test_property!(set: GridMask(1u64 << 36) => get(POINT_4_4.0) => true);
 }
 
 mod count {
     use super::*;
 
-    test_property!(empty: GridMask::<u64>::EMPTY => count() => 0);
+    test_property!(empty: GridMask::EMPTY => count() => 0);
     test_property!(set: MASK_4_4 => count() => 1);
-    test_property!(full: GridMask::<u64>::FULL => count() => 64);
+    test_property!(full: GridMask::FULL => count() => 64);
 }
 
-mod empty_full {
+mod is_empty_is_full {
     use super::*;
 
-    test_property!(empty_is_empty: GridMask::<u64>::EMPTY => is_empty() => true);
-    test_property!(empty_is_not_full: GridMask::<u64>::EMPTY => is_full() => false);
-    test_property!(full_is_not_empty: GridMask::<u64>::FULL => is_empty() => false);
-    test_property!(full_is_full: GridMask::<u64>::FULL => is_full() => true);
+    test_property!(empty_is_empty: GridMask::EMPTY => is_empty() => true);
+    test_property!(empty_is_not_full: GridMask::EMPTY => is_full() => false);
+    test_property!(full_is_not_empty: GridMask::FULL => is_empty() => false);
+    test_property!(full_is_full: GridMask::FULL => is_full() => true);
     test_property!(mixed_is_not_empty: MASK_4_4 => is_empty() => false);
     test_property!(mixed_is_not_full: MASK_4_4 => is_full() => false);
 }
@@ -116,7 +116,7 @@ mod empty_full {
 mod cell_arrays {
     use super::*;
 
-    pub const MIXED_MASK: GridMask = GridMask::new(2 | (1 << 10) | (1 << 63));
+    pub const MIXED_MASK: GridMask = GridMask(2 | (1 << 10) | (1 << 63));
 
     pub const MIXED_CELLS: [bool; 64] = {
         let mut v = [false; 64];
@@ -134,17 +134,19 @@ mod cells {
     use super::cell_arrays::*;
     use super::*;
 
-    test_iter!(empty: GridMask::<u64>::EMPTY => cells() => EMPTY_CELLS);
-    test_iter!(full: GridMask::<u64>::FULL => cells() => FULL_CELLS);
+    test_iter!(empty: GridMask::EMPTY => cells() => EMPTY_CELLS);
+    test_iter!(full: GridMask::FULL => cells() => FULL_CELLS);
     test_iter!(mixed: MIXED_MASK => cells() => MIXED_CELLS);
 
     #[test]
     fn test_double_ended() {
-        let mask = GridMask::new(1 | 1 << 63);
+        let mask = GridMask(1 | 1 << 63);
         let mut cells = mask.cells();
         assert_eq!(cells.next(), Some(true));
         assert_eq!(cells.next_back(), Some(true));
         assert_eq!(cells.next(), Some(false));
+        assert_eq!(cells.next_back(), Some(false));
+        assert_eq!(cells.size_hint(), (60, Some(60)));
     }
 }
 
@@ -163,14 +165,14 @@ mod points {
 
     #[test]
     fn mixed() {
-        let mask = GridMask::new(1 | 1 << 36 | 1 << 63);
+        let mask = GridMask(1 | 1 << 36 | 1 << 63);
         let points: Vec<_> = mask.points().collect();
         assert_eq!(points, vec![GridPoint::ORIGIN, POINT_4_4, GridPoint::MAX]);
     }
 
     #[test]
     fn double_ended() {
-        let mask = GridMask::new(1 | 1 << 63);
+        let mask = GridMask(1 | 1 << 63);
         let mut points = mask.points();
         assert_eq!(points.next(), Some(GridPoint::ORIGIN));
         assert_eq!(points.next_back(), Some(GridPoint::MAX));
@@ -182,9 +184,9 @@ mod from_bool_array {
     use super::cell_arrays::*;
     use super::*;
 
-    test_ctor!(empty: GridMask::<u64>::from(EMPTY_CELLS) => GridMask::EMPTY);
-    test_ctor!(full: GridMask::<u64>::from(FULL_CELLS) => GridMask::FULL);
-    test_ctor!(mixed: GridMask::<u64>::from(MIXED_CELLS) => MIXED_MASK);
+    test_ctor!(empty: GridMask::from(EMPTY_CELLS) => GridMask::EMPTY);
+    test_ctor!(full: GridMask::from(FULL_CELLS) => GridMask::FULL);
+    test_ctor!(mixed: GridMask::from(MIXED_CELLS) => MIXED_MASK);
 }
 
 mod from_bit_index_u64 {
@@ -193,14 +195,14 @@ mod from_bit_index_u64 {
 
     test_ctor!(zero: GridMask::from(BitIndexU64::new(0).unwrap()) => ORIGIN_POINT_MASK);
     test_ctor!(max: GridMask::from(BitIndexU64::new(63).unwrap()) => MAX_POINT_MASK);
-    test_ctor!(val: GridMask::from(BitIndexU64::new(36).unwrap()) => GridMask::new(1 << 36));
+    test_ctor!(val: GridMask::from(BitIndexU64::new(36).unwrap()) => GridMask(1 << 36));
 }
 
 mod from_grid_point {
     use super::*;
 
-    test_ctor!(zero: GridMask::from(GridPoint::ORIGIN) => GridMask::new(1));
-    test_ctor!(max: GridMask::from(GridPoint::MAX) => GridMask::new(1 << 63));
+    test_ctor!(zero: GridMask::from(GridPoint::ORIGIN) => GridMask(1));
+    test_ctor!(max: GridMask::from(GridPoint::MAX) => GridMask(1 << 63));
     test_ctor!(val: GridMask::from(POINT_4_4) => MASK_4_4);
 }
 
@@ -208,11 +210,31 @@ mod from_grid_rect {
     use super::*;
     use grid_mask::GridRect;
 
-    test_ctor!(single_point: GridMask::<u64>::from(GridRect::const_new::<4, 4, 1, 1>()) => MASK_4_4);
-    test_ctor!(full_rect: GridMask::<u64>::from(GridRect::const_new::<0, 0, 8, 8>()) => GridMask::FULL);
+    test_ctor!(single_point: GridMask::from(GridRect::const_new::<4, 4, 1, 1>()) => MASK_4_4);
+    test_ctor!(full_rect: GridMask::from(GridRect::const_new::<0, 0, 8, 8>()) => GridMask::FULL);
+    test_ctor!(full_row: GridMask::from(GridRect::const_new::<0, 0, 8, 1>()) => GridMask::from_str("
+        # # # # # # # #
+        . . . . . . . .
+        . . . . . . . .
+        . . . . . . . .
+        . . . . . . . .
+        . . . . . . . .
+        . . . . . . . .
+        . . . . . . . .
+    ")?);
+    test_ctor!(full_col: GridMask::from(GridRect::const_new::<0, 0, 1, 8>()) => GridMask::from_str("
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+        # . . . . . . .
+    ")?);
 }
 
-const POINT_4_4_MASK: GridMask = GridMask::new(1u64 << 36);
+const POINT_4_4_MASK: GridMask = GridMask(1u64 << 36);
 
 const PLUS_4_4: &str = "
     . . . . . . . .
@@ -282,29 +304,29 @@ const SPARSE_CORNERS: &str = "
 
 // NOTE: grow tests commented out - the `grow` method was removed from GridMask's public API.
 // The Adjacency::connected method now works on raw GridDataValue types (u64).
-// mod grow {
-//     macro_rules! test_grow {
-//         ($direction:ty> $name:ident: $mask:expr => $expected:expr) => {
-//             test_property!($name: $mask => grow::<$direction>() => $expected);
-//         };
-//     }
-//
-//     mod cardinal {
-//         use super::super::*;
-//         test_grow!(Cardinal> empty: GridMask::EMPTY => GridMask::EMPTY);
-//         test_grow!(Cardinal> full: GridMask::FULL => GridMask::FULL);
-//         test_grow!(Cardinal> center: POINT_4_4_MASK => GridMask::from_str(PLUS_4_4)?);
-//         test_grow!(Cardinal> top_left: ORIGIN_POINT_MASK => GridMask::from_str(ZERO_POINT_PLUS)?);
-//     }
-//
-//     mod octile {
-//         use super::super::*;
-//         test_grow!(Octile> empty: GridMask::EMPTY => GridMask::EMPTY);
-//         test_grow!(Octile> full: GridMask::FULL => GridMask::FULL);
-//         test_grow!(Octile> center: POINT_4_4_MASK => GridMask::from_str(SQUARE_4_4)?);
-//         test_grow!(Octile> top_left: ORIGIN_POINT_MASK => GridMask::from_str(ZERO_POINT_SQUARE)?);
-//     }
-// }
+mod grow {
+    macro_rules! test_grow {
+        ($direction:ty> $name:ident: $mask:expr => $expected:expr) => {
+            test_property!($name: $mask => grow::<$direction>() => $expected);
+        };
+    }
+
+    mod cardinal {
+        use super::super::*;
+        test_grow!(Cardinal> empty: GridMask::EMPTY => GridMask::EMPTY);
+        test_grow!(Cardinal> full: GridMask::FULL => GridMask::FULL);
+        test_grow!(Cardinal> center: POINT_4_4_MASK => GridMask::from_str(PLUS_4_4)?);
+        test_grow!(Cardinal> top_left: ORIGIN_POINT_MASK => GridMask::from_str(ZERO_POINT_PLUS)?);
+    }
+
+    mod octile {
+        use super::super::*;
+        test_grow!(Octile> empty: GridMask::EMPTY => GridMask::EMPTY);
+        test_grow!(Octile> full: GridMask::FULL => GridMask::FULL);
+        test_grow!(Octile> center: POINT_4_4_MASK => GridMask::from_str(SQUARE_4_4)?);
+        test_grow!(Octile> top_left: ORIGIN_POINT_MASK => GridMask::from_str(ZERO_POINT_SQUARE)?);
+    }
+}
 
 // NOTE: connected tests commented out - the `connected` method was made private (renamed to `contiguous`).
 // The is_contiguous tests below still work since that method is public.
@@ -393,37 +415,11 @@ mod translate {
     #[test]
     fn oob_shifts() {
         OOB_SHIFTS.iter().for_each(|&shift| {
-            let val = GridMask::<u64>::FULL;
+            let val = GridMask::FULL;
             let translated = val.translate(shift);
             assert_eq!(translated, GridMask::EMPTY, "Failed for input {:?}", shift);
         });
     }
-}
-
-mod from_pattern {
-    use super::pattern_data::*;
-    use super::*;
-
-    use grid_mask::err::PatternError;
-
-    test_panic!(set_eq_unset: GridMask::from_pattern("", '#', '#') => "set and unset must be different");
-    test_panic!(set_whitespace: GridMask::from_pattern("", ' ', '.') => "set cannot be whitespace");
-    test_panic!(unset_whitespace: GridMask::from_pattern("", '#', ' ') => "unset cannot be whitespace");
-
-    test_ctor!(
-        too_long: GridMask::from_pattern(TOO_LONG, '#', '.')
-        => Err(PatternError::TooLong)
-    );
-
-    test_ctor!(
-        too_short: GridMask::from_pattern(TOO_SHORT, '#', '.') 
-        => Err(PATTERN_TOO_SHORT));
-    test_ctor!(
-        invalid_char: GridMask::from_pattern(INVALID, '#', '.')
-        => Err(PATTERN_INVALID)
-    );
-
-    // valid construction tested elsewhere
 }
 
 mod from_str {
@@ -435,6 +431,7 @@ mod from_str {
     test_ctor!(valid: GridMask::from_str(super::POINT_4_4_PATTERN) => Ok(super::POINT_4_4_MASK));
     test_ctor!(too_long: GridMask::from_str(TOO_LONG) => Err(PatternError::TooLong));
     test_ctor!(too_short: GridMask::from_str(TOO_SHORT) => Err(PATTERN_TOO_SHORT));
+    test_ctor!(empty: GridMask::from_str("") => Err(PatternError::TooShort(0)));
     test_ctor!(invalid: GridMask::from_str(INVALID) => Err(PATTERN_INVALID));
 }
 
@@ -467,7 +464,7 @@ mod bounds {
     test_bounds!(origin_point: ORIGIN_POINT_MASK => Some(GridRect::const_new::<0, 0, 1, 1>()));
     test_bounds!(max_point: MAX_POINT_MASK => Some(GridRect::const_new::<7, 7, 1, 1>()));
     test_bounds!(center_plus: GridMask::from_str(PLUS_4_4)? => Some(GridRect::const_new::<3, 3, 3, 3>()));
-    test_bounds!(nw_se_corners: GridMask::new(1 | 1 << 63) => Some(GridRect::MAX));
-    test_bounds!(sw_ne_corners: GridMask::new(1 << 56 | 1 << 7) => Some(GridRect::MAX));
+    test_bounds!(nw_se_corners: GridMask(1 | 1 << 63) => Some(GridRect::MAX));
+    test_bounds!(sw_ne_corners: GridMask(1 << 56 | 1 << 7) => Some(GridRect::MAX));
     test_bounds!(sparse_corners: GridMask::from_str(SPARSE_CORNERS)? => Some(GridRect::const_new::<2, 0, 4, 4>()));
 }
