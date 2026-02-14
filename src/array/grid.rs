@@ -12,7 +12,7 @@ use crate::array::delta::ArrayDelta;
 use crate::err::{OutOfBounds, PatternError};
 use crate::ext::{FoldMut, NotWhitespace};
 use crate::num::SignedMag;
-use crate::{ArrayIndex, ArrayPoint, ArrayVector};
+use crate::{ArrayGridView, ArrayIndex, ArrayPoint, ArrayRect, ArrayVector};
 
 use super::{Cells, Points, Spaces};
 
@@ -107,6 +107,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     #[must_use]
     pub fn iter(&self) -> Points<'_, W, H, WORDS> {
         self.points()
+    }
+
+    /// Returns an immutable rectangular view into this grid.
+    pub fn view<R: TryInto<ArrayRect<W, H>>>(&self, rect: R) -> Result<ArrayGridView<'_, W, H, WORDS>, OutOfBounds> {
+        let rect = rect.try_into().map_err(OutOfBounds::new_from)?;
+        Ok(ArrayGridView::new(self, rect))
     }
 
     /// Updates the cell at `index` to `value`.
