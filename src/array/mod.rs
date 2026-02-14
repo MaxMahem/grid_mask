@@ -3,10 +3,16 @@ mod grid;
 mod index;
 mod iter;
 mod point;
+mod rect;
+mod size;
 mod vector;
+mod view;
 
 pub use grid::ArrayGrid;
 pub use index::ArrayIndex;
 pub use iter::{Cells, Points, Spaces};
 pub use point::ArrayPoint;
+pub use rect::ArrayRect;
+pub use size::ArraySize;
 pub use vector::ArrayVector;
+pub use view::ArrayGridView;
