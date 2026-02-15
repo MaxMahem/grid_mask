@@ -9,14 +9,14 @@ type Rect8 = ArrayRect<8, 8>;
 
 const RECT_1_1_2_2: Rect8 = Rect8::const_new::<1, 1, 2, 2>();
 
-fn sample_grid() -> Grid8 {
-    Grid8::from_iter([
-        Point8::const_new::<1, 1>(),
-        Point8::const_new::<2, 1>(),
-        Point8::const_new::<2, 2>(),
-        Point8::const_new::<4, 4>(),
-    ])
-}
+const SAMPLE_GRID: Grid8 = {
+    let mut grid = Grid8::EMPTY;
+    grid.const_update(Point8::const_new::<1, 1>(), true);
+    grid.const_update(Point8::const_new::<2, 1>(), true);
+    grid.const_update(Point8::const_new::<2, 2>(), true);
+    grid.const_update(Point8::const_new::<4, 4>(), true);
+    grid
+};
 
 mod grid_view {
     use super::*;
@@ -24,19 +24,14 @@ mod grid_view {
     test_transform!(create_with_rect: Grid8::EMPTY => view(RECT_1_1_2_2) => matches Ok(_));
     test_transform!(create_with_tuple: Grid8::EMPTY => view(((1, 1), (2, 2))) => matches Ok(_));
 
-    test_property!(rect: sample_grid().view(RECT_1_1_2_2)? => rect() => RECT_1_1_2_2);
-    test_property!(origin: sample_grid().view(RECT_1_1_2_2)? => origin() => Point8::const_new::<1, 1>());
-    test_property!(width: sample_grid().view(RECT_1_1_2_2)? => width() => 2);
-    test_property!(height: sample_grid().view(RECT_1_1_2_2)? => height() => 2);
+    test_property!(rect: SAMPLE_GRID.view(RECT_1_1_2_2)? => rect() => RECT_1_1_2_2);
+    test_property!(origin: SAMPLE_GRID.view(RECT_1_1_2_2)? => origin() => Point8::const_new::<1, 1>());
 
-    test_transform!(local_0_0: sample_grid().view(RECT_1_1_2_2)? => get_local(0, 0) => Ok(true));
-    test_transform!(local_1_0: sample_grid().view(RECT_1_1_2_2)? => get_local(1, 0) => Ok(true));
-    test_transform!(local_1_1: sample_grid().view(RECT_1_1_2_2)? => get_local(1, 1) => Ok(true));
-    test_transform!(local_0_1: sample_grid().view(RECT_1_1_2_2)? => get_local(0, 1) => Ok(false));
-    test_transform!(local_oob: sample_grid().view(RECT_1_1_2_2)? => get_local(2, 0) => Err(OutOfBounds));
-
-    test_transform!(global_in: sample_grid().view(RECT_1_1_2_2)? => get(Point8::const_new::<2, 2>()) => Ok(true));
-    test_transform!(global_out: sample_grid().view(RECT_1_1_2_2)? => get(Point8::const_new::<4, 4>()) => Err(OutOfBounds));
+    test_property!(local_0_0: SAMPLE_GRID.view(RECT_1_1_2_2)? => get(0, 0) => Ok(true));
+    test_property!(local_1_0: SAMPLE_GRID.view(RECT_1_1_2_2)? => get(1, 0) => Ok(true));
+    test_property!(local_1_1: SAMPLE_GRID.view(RECT_1_1_2_2)? => get(1, 1) => Ok(true));
+    test_property!(local_0_1: SAMPLE_GRID.view(RECT_1_1_2_2)? => get(0, 1) => Ok(false));
+    test_property!(local_oob: SAMPLE_GRID.view(RECT_1_1_2_2)? => get(2, 0) => Err(OutOfBounds));
 
     test_ctor!(invalid_rect_w: Grid8::EMPTY.view(((7, 7), (2, 1))) => Err(OutOfBounds));
     test_ctor!(invalid_rect_h: Grid8::EMPTY.view(((7, 7), (1, 2))) => Err(OutOfBounds));

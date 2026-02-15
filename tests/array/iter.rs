@@ -1,10 +1,9 @@
 use crate::macros::{test_ctor, test_property};
 
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint};
+use grid_mask::{ArrayGrid, ArrayPoint};
 
 type Grid8 = ArrayGrid<8, 8, 1>;
 type Point8 = ArrayPoint<8, 8>;
-type Index8 = ArrayIndex<8, 8>;
 
 mod cells {
     use super::*;
@@ -21,15 +20,13 @@ mod cells {
     test_property!(size_hint: Grid8::EMPTY.cells() => size_hint() => (64, Some(64)));
 }
 
-const I1: Index8 = Index8::const_new::<8>();
 const P1: Point8 = Point8::const_new::<0, 1>();
-const I2: Index8 = Index8::const_new::<24>();
 const P2: Point8 = Point8::const_new::<0, 3>();
 
 const GRID8_MIXED: Grid8 = {
     let mut grid = Grid8::EMPTY;
-    grid.const_update(I1, true);
-    grid.const_update(I2, true);
+    grid.const_update(P1, true);
+    grid.const_update(P2, true);
     grid
 };
 
@@ -48,8 +45,8 @@ mod spaces {
 
     const GRID8_SPARSE: Grid8 = {
         let mut grid = Grid8::FULL;
-        grid.const_update(I1, false);
-        grid.const_update(I2, false);
+        grid.const_update(P1, false);
+        grid.const_update(P2, false);
         grid
     };
 

@@ -1,3 +1,4 @@
+use crate::ArrayIndex;
 use crate::err::OutOfBounds;
 use crate::ext::const_assert_then;
 
@@ -81,6 +82,27 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     #[must_use]
     pub const fn y(&self) -> u16 {
         self.y
+    }
+
+    // /// Creates a new [`ArrayPoint`] from an [`ArrayIndex`].
+    // #[must_use]
+    // #[allow(clippy::cast_possible_truncation)]
+    // pub const fn from_index(index: crate::ArrayIndex<W, H>) -> Self {
+    //     Self { x: (index.get() % W as u32) as u16, y: (index.get() / W as u32) as u16 }
+    // }
+
+    /// Converts the point to an [`ArrayIndex`].
+    #[must_use]
+    pub(crate) const fn to_index(self) -> ArrayIndex<W, H> {
+        ArrayIndex::from_point(self)
+    }
+}
+
+impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for ArrayPoint<W, H> {
+    fn from(index: ArrayIndex<W, H>) -> Self {
+        let val = index.get();
+        #[allow(clippy::cast_possible_truncation)]
+        Self { x: (val % u32::from(W)) as u16, y: (val / u32::from(W)) as u16 }
     }
 }
 

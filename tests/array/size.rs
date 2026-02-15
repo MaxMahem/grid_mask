@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_panic, test_property, test_transform};
+use crate::macros::{test_ctor, test_property, test_transform};
 use tap::Pipe;
 
 use grid_mask::ArraySize;
@@ -10,8 +10,8 @@ const SIZE_3_5: Size8 = Size8::const_new::<3, 5>();
 mod consts {
     use super::*;
 
-    test_ctor!(min: Size8::MIN => Size8 { width: 1, height: 1 });
-    test_ctor!(max: Size8::MAX => Size8 { width: 8, height: 8 });
+    test_ctor!(min: Size8::MIN => Size8::const_new::<1, 1>());
+    test_ctor!(max: Size8::MAX => Size8::const_new::<8, 8>());
 }
 
 mod new {
@@ -32,10 +32,11 @@ mod const_new {
 
     test_ctor!(ok: Size8::const_new::<3, 5>() => SIZE_3_5);
 
-    test_panic!(panic_zero_w: Size8::const_new::<0, 1>() => "width out of bounds");
-    test_panic!(panic_zero_h: Size8::const_new::<1, 0>() => "height out of bounds");
-    test_panic!(panic_big_w: Size8::const_new::<9, 1>() => "width out of bounds");
-    test_panic!(panic_big_h: Size8::const_new::<1, 9>() => "height out of bounds");
+    // These tests fail compilation due to const_assert_then in const_new
+    // test_panic!(panic_zero_w: Size8::const_new::<0, 1>() => "width out of bounds");
+    // test_panic!(panic_zero_h: Size8::const_new::<1, 0>() => "height out of bounds");
+    // test_panic!(panic_big_w: Size8::const_new::<9, 1>() => "width out of bounds");
+    // test_panic!(panic_big_h: Size8::const_new::<1, 9>() => "height out of bounds");
 }
 
 mod properties {

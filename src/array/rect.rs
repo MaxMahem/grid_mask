@@ -61,25 +61,13 @@ impl<const W: u16, const H: u16> ArrayRect<W, H> {
         self.size
     }
 
-    /// Returns the width.
-    #[must_use]
-    pub const fn width(&self) -> u16 {
-        self.size.width
-    }
-
-    /// Returns the height.
-    #[must_use]
-    pub const fn height(&self) -> u16 {
-        self.size.height
-    }
-
     /// Returns `true` when `point` lies within this rectangle.
     #[must_use]
     pub const fn contains(&self, point: ArrayPoint<W, H>) -> bool {
-        point.x >= self.point.x
-            && point.x < self.point.x + self.size.width
-            && point.y >= self.point.y
-            && point.y < self.point.y + self.size.height
+        point.x() >= self.point.x()
+            && point.x() < self.point.x() + self.size.width()
+            && point.y() >= self.point.y()
+            && point.y() < self.point.y() + self.size.height()
     }
 }
 

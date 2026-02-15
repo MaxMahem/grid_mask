@@ -3,13 +3,18 @@ use crate::err::OutOfBounds;
 /// A bounded width/height pair for an [`ArrayGrid`](crate::array::ArrayGrid).
 ///
 /// Both dimensions must be non-zero and no larger than the grid dimensions.
+///
+/// # Type Parameters
+///
+/// - `W`: The width of the grid.
+/// - `H`: The height of the grid.
 #[readonly::make]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
 #[display("({width}x{height})")]
 pub struct ArraySize<const W: u16, const H: u16> {
-    /// Width of the rectangle.
+    /// The width of the rectangle, must be in `1..=W`.
     pub width: u16,
-    /// Height of the rectangle.
+    /// The height of the rectangle, must be in `1..=H`.
     pub height: u16,
 }
 
@@ -54,6 +59,12 @@ impl<const W: u16, const H: u16> ArraySize<W, H> {
     #[must_use]
     pub const fn height(&self) -> u16 {
         self.height
+    }
+
+    /// Returns `true` if the given coordinates are within the bounds of this size.
+    #[must_use]
+    pub const fn contains(&self, x: u16, y: u16) -> bool {
+        x < self.width && y < self.height
     }
 }
 

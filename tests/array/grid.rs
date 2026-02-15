@@ -9,7 +9,7 @@ type Index8 = ArrayIndex<8, 8>;
 
 const GRID8_1_1: Grid8 = {
     let mut g = Grid8::EMPTY;
-    g.const_update(Index8::const_new::<{ 8 + 1 }>(), true);
+    g.const_update(Point8::const_new::<1, 1>(), true);
     g
 };
 
@@ -90,16 +90,16 @@ mod access {
 mod translation {
     use super::*;
 
-    test_mutation!(zero_full: Grid8::FULL => translate_mut(ArrayVector::ZERO) => Grid8::FULL);
-    test_mutation!(zero_empty: Grid8::EMPTY => translate_mut(ArrayVector::ZERO) => Grid8::EMPTY);
+    test_mutation!(zero_full: Grid8::FULL => translate(ArrayVector::ZERO) => Grid8::FULL);
+    test_mutation!(zero_empty: Grid8::EMPTY => translate(ArrayVector::ZERO) => Grid8::EMPTY);
 
-    test_mutation!(east: GRID8_1_1 => translate_mut(ArrayVector::EAST) => Grid8::from_iter([Point8::new(2, 1)?]));
-    test_mutation!(west: GRID8_1_1 => translate_mut(ArrayVector::WEST) => Grid8::from_iter([Point8::new(0, 1)?]));
-    test_mutation!(south: GRID8_1_1 => translate_mut(ArrayVector::SOUTH) => Grid8::from_iter([Point8::new(1, 2)?]));
-    test_mutation!(north: GRID8_1_1 => translate_mut(ArrayVector::NORTH) => Grid8::from_iter([Point8::new(1, 0)?]));
+    test_mutation!(east: GRID8_1_1 => translate(ArrayVector::EAST) => Grid8::from_iter([Point8::new(2, 1)?]));
+    test_mutation!(west: GRID8_1_1 => translate(ArrayVector::WEST) => Grid8::from_iter([Point8::new(0, 1)?]));
+    test_mutation!(south: GRID8_1_1 => translate(ArrayVector::SOUTH) => Grid8::from_iter([Point8::new(1, 2)?]));
+    test_mutation!(north: GRID8_1_1 => translate(ArrayVector::NORTH) => Grid8::from_iter([Point8::new(1, 0)?]));
 
     test_mutation!(
-        east_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 0)) => Grid10::from_str("
+        east_5: Grid10::FULL => translate(ArrayVector::new(5, 0)) => Grid10::from_str("
             . . . . . # # # # #
             . . . . . # # # # #
             . . . . . # # # # #
@@ -113,7 +113,7 @@ mod translation {
         ")?
     );
     test_mutation!(
-        west_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 0)) => Grid10::from_str("
+        west_5: Grid10::FULL => translate(ArrayVector::new(-5, 0)) => Grid10::from_str("
             # # # # # . . . . .
             # # # # # . . . . .
             # # # # # . . . . .
@@ -127,7 +127,7 @@ mod translation {
         ")?
     );
     test_mutation!(
-        south_5: Grid10::FULL => translate_mut(ArrayVector::new(0, 5)) => Grid10::from_str("
+        south_5: Grid10::FULL => translate(ArrayVector::new(0, 5)) => Grid10::from_str("
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
@@ -143,7 +143,7 @@ mod translation {
 
     // Diagonal translations (5 units each axis)
     test_mutation!(
-        se_5: Grid10::FULL => translate_mut(ArrayVector::new(5, 5)) => Grid10::from_str("
+        se_5: Grid10::FULL => translate(ArrayVector::new(5, 5)) => Grid10::from_str("
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
@@ -157,7 +157,7 @@ mod translation {
         ")?
     );
     test_mutation!(
-        sw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, 5)) => Grid10::from_str("
+        sw_5: Grid10::FULL => translate(ArrayVector::new(-5, 5)) => Grid10::from_str("
             . . . . . . . . . .
             . . . . . . . . . .
             . . . . . . . . . .
@@ -171,7 +171,7 @@ mod translation {
         ")?
     );
     test_mutation!(
-        ne_5: Grid10::FULL => translate_mut(ArrayVector::new(5, -5)) => Grid10::from_str("
+        ne_5: Grid10::FULL => translate(ArrayVector::new(5, -5)) => Grid10::from_str("
             . . . . . # # # # #
             . . . . . # # # # #
             . . . . . # # # # #
@@ -185,7 +185,7 @@ mod translation {
         ")?
     );
     test_mutation!(
-        nw_5: Grid10::FULL => translate_mut(ArrayVector::new(-5, -5)) => Grid10::from_str("
+        nw_5: Grid10::FULL => translate(ArrayVector::new(-5, -5)) => Grid10::from_str("
             # # # # # . . . . .
             # # # # # . . . . .
             # # # # # . . . . .

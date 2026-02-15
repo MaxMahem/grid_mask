@@ -110,20 +110,27 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     }
 
     /// Returns an immutable rectangular view into this grid.
-    pub fn view<R: TryInto<ArrayRect<W, H>>>(&self, rect: R) -> Result<ArrayGridView<'_, W, H, WORDS>, OutOfBounds> {
+    ///
+    /// # Errors
+    ///
+    /// Returns [`OutOfBounds`] if `rect` extends beyond the grid.
+    pub fn view<R: TryInto<ArrayRect<W, H>>>(
+        &mut self,
+        rect: R,
+    ) -> Result<ArrayGridView<'_, W, H, WORDS>, OutOfBounds> {
         let rect = rect.try_into().map_err(OutOfBounds::new_from)?;
         Ok(ArrayGridView::new(self, rect))
     }
 
     /// Updates the cell at `index` to `value`.
-    pub fn update<Idx: Into<ArrayIndex<W, H>>>(&mut self, index: Idx, value: bool) {
+    pub fn update<Idx: Into<ArrayPoint<W, H>>>(&mut self, index: Idx, value: bool) {
         self.const_update(index.into(), value);
     }
 
     /// Updates the cell at `index` to `value`.
     // TODO: Remove when const traits stabilize
-    pub const fn const_update(&mut self, index: ArrayIndex<W, H>, value: bool) {
-        match (index.word_and_bit(), value) {
+    pub const fn const_update(&mut self, point: ArrayPoint<W, H>, value: bool) {
+        match (point.to_index().word_and_bit(), value) {
             ((word, bit), true) => self.words.data[word] |= 1u64 << bit,
             ((word, bit), false) => self.words.data[word] &= !(1u64 << bit),
         }
@@ -149,7 +156,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     ///
     /// Bits that shift beyond the grid boundary are discarded; vacated
     /// positions are filled with `false`.
-    pub fn translate_mut(&mut self, vec: ArrayVector) {
+    pub fn translate(&mut self, vec: ArrayVector) {
         match ArrayDelta::<W, H>::try_from(vec).map(|d| (d.linear_offset, d.dx)) {
             Ok((SignedMag::Zero, _)) => {}
             Ok((SignedMag::Positive(n), dx)) => {
@@ -346,10 +353,10 @@ impl<const W: u16, const H: u16, const WORDS: usize> From<[u64; WORDS]> for Arra
 
 impl<Idx, const W: u16, const H: u16, const WORDS: usize> FromIterator<Idx> for ArrayGrid<W, H, WORDS>
 where
-    Idx: Into<ArrayIndex<W, H>>,
+    Idx: Into<ArrayPoint<W, H>>,
 {
     fn from_iter<T: IntoIterator<Item = Idx>>(iter: T) -> Self {
-        iter.into_iter().map_into().fold_mut(Self::EMPTY, |grid, index| grid.const_update(index, true))
+        iter.into_iter().map_into().fold_mut(Self::EMPTY, |grid, point| grid.const_update(point, true))
     }
 }
 
@@ -364,10 +371,10 @@ impl<'a, const W: u16, const H: u16, const WORDS: usize> IntoIterator for &'a Ar
 
 impl<Idx, const W: u16, const H: u16, const WORDS: usize> Extend<Idx> for ArrayGrid<W, H, WORDS>
 where
-    Idx: Into<ArrayIndex<W, H>>,
+    Idx: Into<ArrayPoint<W, H>>,
 {
     fn extend<T: IntoIterator<Item = Idx>>(&mut self, iter: T) {
-        iter.into_iter().map_into().for_each(|index| self.const_update(index, true));
+        iter.into_iter().map_into().for_each(|point| self.const_update(point, true));
     }
 }
 
@@ -387,7 +394,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> FromStr for ArrayGrid<W, H,
             .try_fold((Self::EMPTY, None), |(mut grid, _), (i, c)| match (i, c) {
                 (Err(_), _) => Err(PatternError::TooLong),
                 (Ok(i), '#') => {
-                    grid.const_update(i, true);
+                    grid.update(i, true);
                     (grid, Some(i)).into_ok()
                 }
                 (Ok(i), '.') => (grid, Some(i)).into_ok(),

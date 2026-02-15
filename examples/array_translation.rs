@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Translate East by 3
     println!("\nTranslate East (3, 0):");
     println!("Notice the rightmost columns are shifted out and lost.");
-    grid.translate_mut(ArrayVector::new(3, 0));
+    grid.translate(ArrayVector::new(3, 0));
     println!("{}", visualize(&grid, '#', '.'));
 
     // Reset grid
@@ -54,7 +54,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Translate West by 3
     println!("\nTranslate West (-3, 0):");
     println!("Notice the leftmost columns are shifted out and lost.");
-    grid.translate_mut(ArrayVector::new(-3, 0));
+    grid.translate(ArrayVector::new(-3, 0));
     println!("{}", visualize(&grid, '#', '.'));
 
     // Reset grid
@@ -63,7 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Translate South by 3
     println!("\nTranslate South (0, 3):");
     println!("Notice the bottom rows are shifted out and lost.");
-    grid.translate_mut(ArrayVector::new(0, 3));
+    grid.translate(ArrayVector::new(0, 3));
     println!("{}", visualize(&grid, '#', '.'));
 
     // Reset grid
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Translate North by 3
     println!("\nTranslate North (0, -3):");
     println!("Notice the top rows are shifted out and lost.");
-    grid.translate_mut(ArrayVector::new(0, -3));
+    grid.translate(ArrayVector::new(0, -3));
     println!("{}", visualize(&grid, '#', '.'));
 
     Ok(())
