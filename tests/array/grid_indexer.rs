@@ -2,7 +2,7 @@ use crate::macros::test_self_method;
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::Point;
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, GridIndex};
+use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, GridGetIndex, GridSetIndex};
 
 type Grid8 = ArrayGrid<8, 8, 1>;
 type Point8 = ArrayPoint<8, 8>;
@@ -18,7 +18,7 @@ mod get {
     use super::*;
 
     test_self_method!(array_point: Point8::ORIGIN => get(&Grid8::FULL) => true);
-    test_self_method!(array_index: this = Index8::MIN => GridIndex::get(this, &Grid8::FULL) => true);
+    test_self_method!(array_index: this = Index8::MIN => GridGetIndex::get(this, &Grid8::FULL) => true);
     test_self_method!(tuple: (0u32, 0u32) => get(&Grid8::FULL) => Ok(true));
     test_self_method!(tuple_err: (u32::MAX, 0u32) => get(&Grid8::FULL) => Err(OutOfBounds));
     test_self_method!(point: Point::new(0u32, 0u32) => get(&Grid8::FULL) => Ok(true));
@@ -39,7 +39,7 @@ mod set {
             fn $id() -> Result<(), Box<dyn std::error::Error>> {
                 let this = $ctor;
                 let mut grid = Grid8::EMPTY;
-                let result = GridIndex::set(this, &mut grid, true);
+                let result = GridIndexSet::set(this, &mut grid, true);
                 assert_eq!(result, $result);
                 assert_eq!(grid, $expected);
                 Ok(())

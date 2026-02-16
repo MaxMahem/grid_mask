@@ -12,7 +12,7 @@ use crate::ext::{FoldMut, NotWhitespace, assert_then, safe_into};
 use crate::num::{Point, Rect, SignedMag, Size};
 use crate::{ArrayIndex, ArrayPoint, ArrayRect, ArrayVector, GridView, GridViewMut};
 
-use super::{Cells, GridIndex, Points, Spaces};
+use super::{Cells, GridGetIndex, GridSetIndex, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
@@ -91,7 +91,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// let fallible = grid.get((0u16, 0u16));
     /// assert_eq!(fallible, Ok(true));
     /// ```
-    pub fn get<I: GridIndex<Self>>(&self, indexer: I) -> I::GetOutput {
+    pub fn get<I: GridGetIndex<Self>>(&self, indexer: I) -> I::GetOutput {
         indexer.get(self)
     }
 
@@ -177,14 +177,14 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     #[must_use]
     pub fn as_view(&self) -> GridView<'_> {
         let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
-        GridView::new(self.data.as_bitslice(), W, rect)
+        GridView::new(self.bits(), W, rect)
     }
 
     /// Returns a mutable rectangular view over the entire grid.
     #[must_use]
     pub fn as_view_mut(&mut self) -> GridViewMut<'_> {
         let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
-        let bits = self.data.as_mut_bitslice().split_at_mut(0).1;
+        let bits = self.bits_mut().split_at_mut(0).1;
         GridViewMut::new(bits, W, rect)
     }
 
@@ -226,7 +226,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// grid.set((0u16, 0u16), true).unwrap();
     /// assert_eq!(grid.get((0u16, 0u16)), Ok(true));
     /// ```
-    pub fn set<I: GridIndex<Self>>(&mut self, indexer: I, value: bool) -> I::SetOutput {
+    pub fn set<I: GridSetIndex<Self>>(&mut self, indexer: I, value: bool) -> I::SetOutput {
         indexer.set(self, value)
     }
 
@@ -399,7 +399,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> From<[u64; WORDS]> for Arra
 
 impl<IDX, const W: u16, const H: u16, const WORDS: usize> FromIterator<IDX> for ArrayGrid<W, H, WORDS>
 where
-    IDX: GridIndex<Self, SetOutput = ()>,
+    IDX: GridSetIndex<Self, SetOutput = ()>,
 {
     fn from_iter<T: IntoIterator<Item = IDX>>(iter: T) -> Self {
         iter.into_iter().fold_mut(Self::EMPTY, |grid, index| index.set(grid, true))
@@ -417,7 +417,7 @@ impl<'a, const W: u16, const H: u16, const WORDS: usize> IntoIterator for &'a Ar
 
 impl<IDX, const W: u16, const H: u16, const WORDS: usize> Extend<IDX> for ArrayGrid<W, H, WORDS>
 where
-    IDX: GridIndex<Self, SetOutput = ()>,
+    IDX: GridSetIndex<Self, SetOutput = ()>,
 {
     fn extend<T: IntoIterator<Item = IDX>>(&mut self, iter: T) {
         iter.into_iter().for_each(|index| index.set(self, true));

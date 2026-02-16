@@ -10,7 +10,7 @@ mod vector;
 mod view;
 
 pub use grid::ArrayGrid;
-pub use grid_indexer::GridIndex;
+pub use grid_indexer::{GridGetIndex, GridSetIndex};
 pub use index::ArrayIndex;
 pub use iter::{Cells, Points, Spaces};
 pub use point::ArrayPoint;
