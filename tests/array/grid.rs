@@ -10,7 +10,8 @@ type Index8 = ArrayIndex<8, 8>;
 
 const GRID8_1_1: Grid8 = {
     let mut g = Grid8::EMPTY;
-    g.const_set(Point8::const_new::<1, 1>(), true);
+    // (1, 1) -> 9
+    g.const_set(Index8::const_new::<9>(), true);
     g
 };
 

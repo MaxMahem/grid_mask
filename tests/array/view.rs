@@ -2,20 +2,25 @@ use crate::macros::test_self_method;
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::{Point, Size};
-use grid_mask::{ArrayGrid, ArrayPoint, ArrayRect};
+use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayRect};
 
 type Grid8 = ArrayGrid<8, 8, 1>;
 type Point8 = ArrayPoint<8, 8>;
+type Index8 = ArrayIndex<8, 8>;
 type Rect8 = ArrayRect<8, 8>;
 
 const RECT_1_1_2_2: Rect8 = ArrayRect::const_new::<1, 1, 2, 2>();
 
 const SAMPLE_GRID: Grid8 = {
     let mut grid = Grid8::EMPTY;
-    grid.const_set(Point8::const_new::<1, 1>(), true);
-    grid.const_set(Point8::const_new::<2, 1>(), true);
-    grid.const_set(Point8::const_new::<2, 2>(), true);
-    grid.const_set(Point8::const_new::<4, 4>(), true);
+    // (1, 1) -> 9
+    grid.const_set(Index8::const_new::<9>(), true);
+    // (2, 1) -> 10
+    grid.const_set(Index8::const_new::<10>(), true);
+    // (2, 2) -> 18
+    grid.const_set(Index8::const_new::<18>(), true);
+    // (4, 4) -> 36
+    grid.const_set(Index8::const_new::<36>(), true);
     grid
 };
 

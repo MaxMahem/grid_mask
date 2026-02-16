@@ -10,3 +10,4 @@ mod point;
 mod rect;
 mod size;
 mod view;
+mod view_indexing;

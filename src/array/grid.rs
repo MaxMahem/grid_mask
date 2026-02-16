@@ -4,7 +4,6 @@ use std::str::FromStr;
 use bitvec::access::BitSafeU64;
 use bitvec::prelude::{BitArray, BitSlice, Lsb0};
 use fluent_result::into::IntoResult;
-use itertools::Itertools;
 use tap::Conv;
 
 use crate::array::delta::ArrayDelta;
@@ -13,7 +12,7 @@ use crate::ext::{FoldMut, NotWhitespace, assert_then, safe_into};
 use crate::num::{Point, Rect, SignedMag, Size};
 use crate::{ArrayIndex, ArrayPoint, ArrayRect, ArrayVector, GridView, GridViewMut};
 
-use super::{Cells, GridIndexer, Points, Spaces};
+use super::{Cells, GridIndex, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
@@ -63,19 +62,21 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         )
     };
 
-    /// Returns the value of the cell at `point`.
+    #[must_use]
+    /// Gets the value of the cell at `index`.
     ///
     /// This method supports two modes of operation:
-    /// - infallible point inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `bool`
-    /// - fallible point inputs ([`Point`] or `(x, y)` tuples) return `Result<bool, OutOfBounds>`
+    /// - infallible indexes (like [`ArrayIndex`] or [`ArrayPoint`]) return `bool`
+    /// - fallible indexes (like [`Point`], `(x, y)` or flat indexes [`u32`])
+    ///   return `Result<bool, OutOfBounds>`
     ///
     /// # Arguments
     ///
-    /// * `point` - Any input that implements [`ArrayGridPointArg`].
+    /// * `index` - The index of the cell to get.
     ///
     /// # Type Parameters
     ///
-    /// * `Idx` - Point input type used to address a cell in this grid.
+    /// * `Idx` - Index input type used to address a cell in this grid.
     ///
     /// # Examples
     ///
@@ -90,16 +91,31 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// let fallible = grid.get((0u16, 0u16));
     /// assert_eq!(fallible, Ok(true));
     /// ```
-    #[must_use]
-    pub fn get<Idx: GridIndexer<W, H>>(&self, point: Idx) -> Idx::GetOutput {
-        point.get(self)
+    pub fn get<I: GridIndex<Self>>(&self, indexer: I) -> I::GetOutput {
+        indexer.get(self)
     }
 
-    /// Returns the value of the cell at `point`.
-    // Todo: Remove once const traits stabilize.
+    /// Returns the value of the cell at `index`.
+    ///
+    /// This method is infallible and can be used in const contexts.
+    ///
+    /// # Arguments
+    ///
+    /// * `index` - The index of the cell to get.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, ArrayIndex};
+    /// type Grid = ArrayGrid<8, 8, 1>;
+    ///
+    /// let grid = Grid::FULL;
+    /// let value = grid.const_get(ArrayIndex::MIN);
+    /// assert!(value);
+    /// ```
     #[must_use]
-    pub const fn const_get(&self, point: ArrayPoint<W, H>) -> bool {
-        let (word, bit) = point.to_index().word_and_bit();
+    pub const fn const_get(&self, index: ArrayIndex<W, H>) -> bool {
+        let (word, bit) = index.word_and_bit();
         self.data.data[word] & (1u64 << bit) != 0
     }
 
@@ -185,20 +201,20 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         GridViewMut::new(bits, W, Rect::from(rect))
     }
 
-    /// Sets the value of the cell at `point`.
+    /// Sets the value of the cell at `index`.
     ///
     /// This method supports two modes of operation:
-    /// - infallible point inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `()`
-    /// - fallible point inputs ([`Point`] or `(x, y)` tuples) return `Result<(), OutOfBounds>`
+    /// - infallible inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `()`
+    /// - fallible inputs ([`Point`] or `(x, y)` tuples) return `Result<(), OutOfBounds>`
     ///
     /// # Arguments
     ///
-    /// * `point` - Any input that implements [`ArrayGridPointArg`].
-    /// * `value` - New bit value for the addressed cell.
+    /// * `index` - The index of the cell to set.
+    /// * `value` - The new state of the cell.
     ///
     /// # Type Parameters
     ///
-    /// * `Idx` - Point input type used to address a cell in this grid.
+    /// * `Idx` - Index input type used to address a cell in this grid.
     ///
     /// # Examples
     ///
@@ -210,14 +226,14 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// grid.set((0u16, 0u16), true).unwrap();
     /// assert_eq!(grid.get((0u16, 0u16)), Ok(true));
     /// ```
-    pub fn set<Idx: GridIndexer<W, H>>(&mut self, point: Idx, value: bool) -> Idx::SetOutput {
-        point.set(self, value)
+    pub fn set<I: GridIndex<Self>>(&mut self, indexer: I, value: bool) -> I::SetOutput {
+        indexer.set(self, value)
     }
 
     /// Updates the cell at `index` to `value`.
     // TODO: Remove when const traits stabilize
-    pub const fn const_set(&mut self, point: ArrayPoint<W, H>, value: bool) {
-        match (point.to_index().word_and_bit(), value) {
+    pub const fn const_set(&mut self, index: ArrayIndex<W, H>, value: bool) {
+        match (index.word_and_bit(), value) {
             ((word, bit), true) => self.data.data[word] |= 1u64 << bit,
             ((word, bit), false) => self.data.data[word] &= !(1u64 << bit),
         }
@@ -381,12 +397,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> From<[u64; WORDS]> for Arra
     }
 }
 
-impl<Idx, const W: u16, const H: u16, const WORDS: usize> FromIterator<Idx> for ArrayGrid<W, H, WORDS>
+impl<IDX, const W: u16, const H: u16, const WORDS: usize> FromIterator<IDX> for ArrayGrid<W, H, WORDS>
 where
-    Idx: Into<ArrayPoint<W, H>>,
+    IDX: GridIndex<Self, SetOutput = ()>,
 {
-    fn from_iter<T: IntoIterator<Item = Idx>>(iter: T) -> Self {
-        iter.into_iter().map_into().fold_mut(Self::EMPTY, |grid, point| grid.const_set(point, true))
+    fn from_iter<T: IntoIterator<Item = IDX>>(iter: T) -> Self {
+        iter.into_iter().fold_mut(Self::EMPTY, |grid, index| index.set(grid, true))
     }
 }
 
@@ -399,12 +415,12 @@ impl<'a, const W: u16, const H: u16, const WORDS: usize> IntoIterator for &'a Ar
     }
 }
 
-impl<Idx, const W: u16, const H: u16, const WORDS: usize> Extend<Idx> for ArrayGrid<W, H, WORDS>
+impl<IDX, const W: u16, const H: u16, const WORDS: usize> Extend<IDX> for ArrayGrid<W, H, WORDS>
 where
-    Idx: Into<ArrayPoint<W, H>>,
+    IDX: GridIndex<Self, SetOutput = ()>,
 {
-    fn extend<T: IntoIterator<Item = Idx>>(&mut self, iter: T) {
-        iter.into_iter().map_into().for_each(|point| self.const_set(point, true));
+    fn extend<T: IntoIterator<Item = IDX>>(&mut self, iter: T) {
+        iter.into_iter().for_each(|index| index.set(self, true));
     }
 }
 
