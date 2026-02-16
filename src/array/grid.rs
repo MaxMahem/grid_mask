@@ -5,7 +5,7 @@ use bitvec::access::BitSafeU64;
 use bitvec::prelude::{BitArray, BitSlice, Lsb0};
 use fluent_result::into::IntoResult;
 use itertools::Itertools;
-use tap::{Conv, Pipe};
+use tap::Conv;
 
 use crate::array::delta::ArrayDelta;
 use crate::err::{OutOfBounds, PatternError};
@@ -13,7 +13,7 @@ use crate::ext::{FoldMut, NotWhitespace, assert_then, safe_into};
 use crate::num::{Point, Rect, SignedMag, Size};
 use crate::{ArrayGridView, ArrayGridViewMut, ArrayIndex, ArrayPoint, ArrayRect, ArrayVector};
 
-use super::{Cells, Points, Spaces};
+use super::{ArrayGridPointArg, Cells, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
@@ -63,10 +63,45 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         )
     };
 
-    /// Gets the cell at `index` to `value`.
+    /// Returns the value of the cell at `point`.
+    ///
+    /// This method supports two modes of operation:
+    /// - infallible point inputs (for example [`ArrayPoint`] or [`ArrayIndex`]) return `bool`
+    /// - fallible point inputs (for example `(x, y)` tuples) return `Result<bool, OutOfBounds>`
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - Any input that implements [`ArrayGridPointArg`].
+    ///
+    /// # Type Parameters
+    ///
+    /// * `Idx` - Point input type used to address a cell in this grid.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, ArrayIndex};
+    /// type Grid = ArrayGrid<8, 8, 1>;
+    ///
+    /// let grid = Grid::FULL;
+    /// let infallible = grid.get(ArrayIndex::MIN);
+    /// assert!(infallible);
+    ///
+    /// let fallible = grid.get((0u16, 0u16));
+    /// assert_eq!(fallible, Ok(true));
+    /// ```
     #[must_use]
-    pub fn get<Idx: Into<ArrayPoint<W, H>>>(&self, point: Idx) -> bool {
-        point.into().to_index().get().pipe(|index| self.data[index as usize])
+    pub fn get<Idx: ArrayGridPointArg<W, H>>(&self, point: Idx) -> Idx::GetOutput {
+        point.get(self)
+    }
+
+    /// Returns the value of the cell at `point`.
+    ///
+    /// This is the const-ready, infallible accessor used internally by [`Self::get`].
+    #[must_use]
+    pub const fn const_get(&self, point: ArrayPoint<W, H>) -> bool {
+        let (word, bit) = point.to_index().word_and_bit();
+        self.data.data[word] & (1u64 << bit) != 0
     }
 
     /// Returns the number of set cells in the grid.
@@ -151,9 +186,33 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         ArrayGridViewMut::new(bits, W, Rect::from(rect))
     }
 
-    /// Updates the cell at `index` to `value`.
-    pub fn set<Idx: Into<ArrayPoint<W, H>>>(&mut self, index: Idx, value: bool) {
-        self.const_set(index.into(), value);
+    /// Updates the value of the cell at `point`.
+    ///
+    /// This method supports two modes of operation:
+    /// - infallible point inputs (for example [`ArrayPoint`] or [`ArrayIndex`]) return `()`
+    /// - fallible point inputs (for example `(x, y)` tuples) return `Result<(), OutOfBounds>`
+    ///
+    /// # Arguments
+    ///
+    /// * `point` - Any input that implements [`ArrayGridPointArg`].
+    /// * `value` - New bit value for the addressed cell.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `Idx` - Point input type used to address a cell in this grid.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use grid_mask::ArrayGrid;
+    /// type Grid = ArrayGrid<8, 8, 1>;
+    ///
+    /// let mut grid = Grid::EMPTY;
+    /// grid.set((0u16, 0u16), true).unwrap();
+    /// assert_eq!(grid.get((0u16, 0u16)), Ok(true));
+    /// ```
+    pub fn set<Idx: ArrayGridPointArg<W, H>>(&mut self, point: Idx, value: bool) -> Idx::SetOutput {
+        point.set(self, value)
     }
 
     /// Updates the cell at `index` to `value`.
