@@ -22,6 +22,23 @@ macro_rules! debug_check_then {
     }};
 }
 
+/// [`debug_assert!`]s that the `val` expression is convertible to the `type`, then
+/// evaluates and returns the converted value.
+///
+/// `safe_into!(val => type)`
+///
+/// # Macro Values
+///
+/// - `val`: The expression to convert
+/// - `type`: The type to convert to
+macro_rules! safe_into {
+    ($val:expr => $type:ty) => {{
+        let value = <$type>::try_from($val);
+        debug_assert!(value.is_ok(), "Value should be convertible to the type");
+        unsafe { value.unwrap_unchecked() }
+    }};
+}
+
 // /// A safety `check` that guards the `unsafe` `then` expression.
 // ///
 // /// Note that the `check` is only performed in debug builds.
@@ -40,24 +57,24 @@ macro_rules! debug_check_then {
 //     }};
 // }
 
-/// [`assert!`]s in a `const` block that the `test` expression is true, then
-/// evaluates and returns `then`.
-///
-/// `const_assert_then!(test => then, msg?)`
-///
-/// # Macro Values
-///
-/// - `test`: The expression to test
-/// - `then`: The expression to evaluate if `test` is true
-/// - `msg`: An optional message to print if `test` is false
-macro_rules! const_assert_then {
-    ($test:expr => $then:expr $(, $msg:literal)?) => {
-        const {
-            assert!($test $(, $msg)?);
-            $then
-        }
-    };
-}
+// /// [`assert!`]s in a `const` block that the `test` expression is true, then
+// /// evaluates and returns `then`.
+// ///
+// /// `const_assert_then!(test => then, msg?)`
+// ///
+// /// # Macro Values
+// ///
+// /// - `test`: The expression to test
+// /// - `then`: The expression to evaluate if `test` is true
+// /// - `msg`: An optional message to print if `test` is false
+// macro_rules! const_assert_then {
+//     ($test:expr => $then:expr $(, $msg:literal)?) => {
+//         const {
+//             assert!($test $(, $msg)?);
+//             $then
+//         }
+//     };
+// }
 
 /// [`assert!`]s in a `const` block that the `test` expression is true.
 ///
@@ -112,6 +129,8 @@ macro_rules! const_assert {
 
 // pub(crate) use assert_then;
 pub(crate) use const_assert;
-pub(crate) use const_assert_then;
+//pub(crate) use const_assert_then;
 pub(crate) use debug_check_then;
 //pub(crate) use safety_check;
+
+pub(crate) use safe_into;

@@ -12,7 +12,7 @@ pub struct Points<'a, const W: u16, const H: u16, const WORDS: usize> {
 
 impl<'a, const W: u16, const H: u16, const WORDS: usize> Points<'a, W, H, WORDS> {
     pub(crate) fn new(grid: &'a ArrayGrid<W, H, WORDS>) -> Self {
-        Self { iter: grid.words.as_bitslice().iter_ones() }
+        Self { iter: grid.data.as_bitslice().iter_ones() }
     }
 
     const W_USIZE: usize = W as usize;

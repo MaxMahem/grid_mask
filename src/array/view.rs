@@ -8,6 +8,7 @@ use fluent_result::bool::Then;
 
 use crate::array::{ArrayGrid, ArrayPoint, ArrayRect};
 use crate::err::OutOfBounds;
+use crate::num::Point;
 
 /// A rectangular view over an [`ArrayGrid`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -79,16 +80,16 @@ where
     ///
     /// The coordinates are local to the view (relative to `(0, 0)`).
     #[allow(clippy::cast_possible_truncation)]
-    pub fn points(&self) -> impl Iterator<Item = (u16, u16)> + '_ {
-        self.rows().enumerate().flat_map(|(y, row)| row.iter_ones().map(move |x| (x as u16, y as u16)))
+    pub fn points(&self) -> impl Iterator<Item = Point<u16>> + '_ {
+        self.rows().enumerate().flat_map(|(y, row)| row.iter_ones().map(move |x| Point::new(x as u16, y as u16)))
     }
 
     /// Returns an iterator over the positions of all unset cells in the view.
     ///
     /// The coordinates are local to the view (relative to `(0, 0)`).
     #[allow(clippy::cast_possible_truncation)]
-    pub fn spaces(&self) -> impl Iterator<Item = (u16, u16)> + '_ {
-        self.rows().enumerate().flat_map(|(y, row)| row.iter_zeros().map(move |x| (x as u16, y as u16)))
+    pub fn spaces(&self) -> impl Iterator<Item = Point<u16>> + '_ {
+        self.rows().enumerate().flat_map(|(y, row)| row.iter_zeros().map(move |x| Point::new(x as u16, y as u16)))
     }
 
     const W_USZ: usize = W as usize;
@@ -100,7 +101,7 @@ where
 
         self.grid
             .borrow()
-            .words
+            .data
             .as_bitslice()
             .chunks(W as usize)
             .skip(self.rect.point.y() as usize)
@@ -139,7 +140,7 @@ where
 
         self.grid
             .borrow_mut()
-            .words
+            .data
             .as_mut_bitslice()
             .chunks_mut(W as usize)
             .skip(self.rect.point.y() as usize)

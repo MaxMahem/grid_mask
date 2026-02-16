@@ -12,7 +12,7 @@ pub struct Spaces<'a, const W: u16, const H: u16, const WORDS: usize> {
 
 impl<'a, const W: u16, const H: u16, const WORDS: usize> Spaces<'a, W, H, WORDS> {
     pub(crate) fn new(grid: &'a ArrayGrid<W, H, WORDS>) -> Self {
-        Self { iter: grid.words.as_bitslice()[..ArrayGrid::<W, H, WORDS>::CELL_COUNT_USZ].iter_zeros() }
+        Self { iter: grid.data.as_bitslice()[..ArrayGrid::<W, H, WORDS>::CELL_COUNT_USZ].iter_zeros() }
     }
 
     fn to_point(i: usize) -> ArrayPoint<W, H> {

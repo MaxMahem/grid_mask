@@ -1,11 +1,13 @@
+use num_integer::Integer;
+
 use crate::ArrayIndex;
 use crate::err::OutOfBounds;
-use crate::ext::const_assert_then;
+use crate::ext::safe_into;
+use crate::num::{ArrayGridPos, Point};
 
 /// A point in an `ArrayGrid` of width `W` and height `H`.
 ///
 /// Both coordinates are bounded, so invalid points cannot be expressed.
-#[readonly::make]
 #[derive(
     Debug, //
     Clone,
@@ -16,25 +18,20 @@ use crate::ext::const_assert_then;
     PartialOrd,
     Ord,
     derive_more::Display,
+    derive_more::From,
+    derive_more::Into,
+    derive_more::Deref,
 )]
-#[display("({x}, {y})")]
-pub struct ArrayPoint<const W: u16, const H: u16> {
-    /// The x-coordinate of the point.
-    pub x: u16,
-    /// The y-coordinate of the point.
-    pub y: u16,
-}
+#[display("({x}, {y})", x = self.x, y = self.y)]
+pub struct ArrayPoint<const W: u16, const H: u16>(Point<ArrayGridPos<W>, ArrayGridPos<H>>);
 
 impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     /// The origin point.
-    pub const ORIGIN: Self = Self { x: 0, y: 0 };
+    pub const ORIGIN: Self = Self(Point::new(ArrayGridPos::ZERO, ArrayGridPos::ZERO));
     /// The minimum valid point.
     pub const MIN: Self = Self::ORIGIN;
     /// The maximum valid point.
-    pub const MAX: Self = Self {
-        x: W.checked_sub(1).expect("width must be > 0"), //
-        y: H.checked_sub(1).expect("height must be > 0"),
-    };
+    pub const MAX: Self = Self(Point::new(ArrayGridPos::MAX, ArrayGridPos::MAX));
 
     pub(crate) const W_U32: u32 = W as u32;
     pub(crate) const H_U32: u32 = H as u32;
@@ -45,10 +42,15 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     ///
     /// [`OutOfBounds`] if `x >= W` or `y >= H`.
     pub const fn new(x: u16, y: u16) -> Result<Self, OutOfBounds> {
-        match x < W && y < H {
-            true => Ok(Self { x, y }),
-            false => Err(OutOfBounds),
-        }
+        let x = match ArrayGridPos::new(x) {
+            Ok(x) => x,
+            Err(e) => return Err(e),
+        };
+        let y = match ArrayGridPos::new(y) {
+            Ok(y) => y,
+            Err(e) => return Err(e),
+        };
+        Ok(Self(Point::new(x, y)))
     }
 
     /// Creates a new [`ArrayPoint`] from raw [`u16`] coordinates.
@@ -67,21 +69,21 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     /// ```
     #[must_use]
     pub const fn const_new<const X: u16, const Y: u16>() -> Self {
-        let x = const_assert_then!(X < W => X, "x out of bounds");
-        let y = const_assert_then!(Y < H => Y, "y out of bounds");
-        Self { x, y }
+        let x = ArrayGridPos::const_new::<X>();
+        let y = ArrayGridPos::const_new::<Y>();
+        Self(Point::new(x, y))
     }
 
     /// Returns the x-coordinate of the point.
     #[must_use]
     pub const fn x(&self) -> u16 {
-        self.x
+        self.0.x.get()
     }
 
     /// Returns the y-coordinate of the point.
     #[must_use]
     pub const fn y(&self) -> u16 {
-        self.y
+        self.0.y.get()
     }
 
     // /// Creates a new [`ArrayPoint`] from an [`ArrayIndex`].
@@ -100,9 +102,8 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
 
 impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for ArrayPoint<W, H> {
     fn from(index: ArrayIndex<W, H>) -> Self {
-        let val = index.get();
-        #[allow(clippy::cast_possible_truncation)]
-        Self { x: (val % u32::from(W)) as u16, y: (val / u32::from(W)) as u16 }
+        let (x, y) = index.get().div_rem(&Self::W_U32);
+        safe_into!((x, y) => Self)
     }
 }
 
@@ -112,7 +113,7 @@ where
     HOut: From<u16>,
 {
     fn from(point: ArrayPoint<W, H>) -> Self {
-        (point.x.into(), point.y.into())
+        (point.0.x.get().into(), point.0.y.get().into())
     }
 }
 
@@ -133,6 +134,6 @@ where
 
 impl<const W: u16, const H: u16> PartialEq<(u16, u16)> for ArrayPoint<W, H> {
     fn eq(&self, other: &(u16, u16)) -> bool {
-        self.x == other.0 && self.y == other.1
+        self.0.x.get() == other.0 && self.0.y.get() == other.1
     }
 }

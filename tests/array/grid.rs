@@ -53,7 +53,7 @@ mod properties {
     // Word 0: u64::MAX (64 bits)
     // Word 1: 36 bits set (100 - 64). (1 << 36) - 1.
     const EXPECTED_FULL_10: [u64; 2] = [u64::MAX, (1u64 << 36) - 1];
-    test_property!(full_10_data: Grid10::FULL => words() => &EXPECTED_FULL_10);
+    test_property!(full_10_data: Grid10::FULL => data() => &EXPECTED_FULL_10);
 }
 
 mod mutation {
@@ -70,7 +70,7 @@ mod mutation {
 
     test_mutation!(
         mutate_data: Grid10::EMPTY
-        => mutate_words(|data| data.fill(u64::MAX))
+        => mutate_data(|data| data.fill(u64::MAX))
         => Grid10::FULL
     );
 
