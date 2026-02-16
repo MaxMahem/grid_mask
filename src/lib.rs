@@ -19,7 +19,8 @@ pub mod num;
 pub mod err;
 
 pub use array::{
-    ArrayGrid, ArrayGridView, ArrayGridViewMut, ArrayIndex, ArrayPoint, ArrayRect, ArraySize, ArrayVector,
+    ArrayGrid, ArrayGridPointArg, ArrayGridView, ArrayGridViewMut, ArrayIndex, ArrayPoint, ArrayRect, ArraySize,
+    ArrayVector,
 };
 pub use grid::{Adjacency, Cardinal, Octile};
 pub use grid::{GridDelta, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};

@@ -1,5 +1,6 @@
 use crate::macros::{test_ctor, test_mutation, test_property, test_try_mutation};
 use grid_mask::err::OutOfBounds;
+use grid_mask::num::Point;
 use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
 use std::str::FromStr;
 
@@ -85,6 +86,45 @@ mod access {
     test_property!(get_point: Grid8::FULL => get(Point8::MIN) => true);
     test_property!(get_index: Grid8::FULL => get(Index8::MIN) => true);
     test_property!(get_empty: Grid8::EMPTY => get(Index8::MIN) => false);
+
+    test_property!(get_tuple_ok: Grid8::FULL => get((0u16, 0u16)) => Ok(true));
+    test_property!(get_tuple_err: Grid8::FULL => get((8u16, 0u16)) => Err(OutOfBounds));
+
+    test_property!(get_tuple_u32_ok: Grid8::FULL => get((0u32, 0u32)) => Ok(true));
+    test_property!(get_tuple_u32_err: Grid8::FULL => get((u32::MAX, 0u32)) => Err(OutOfBounds));
+
+    test_property!(get_num_point_ok: Grid8::FULL => get(Point::new(0u32, 0u32)) => Ok(true));
+    test_property!(get_num_point_err: Grid8::FULL => get(Point::new(8u32, 0u32)) => Err(OutOfBounds));
+
+    test_try_mutation!(
+        set_tuple_ok: Grid8::EMPTY
+        => set((0u16, 0u16), true)
+        => (Ok(()), Grid8::from([1]))
+    );
+
+    test_try_mutation!(
+        set_tuple_err: Grid8::EMPTY
+        => set((8u16, 0u16), true)
+        => (Err(OutOfBounds), Grid8::EMPTY)
+    );
+
+    test_try_mutation!(
+        set_tuple_u32_ok: Grid8::EMPTY
+        => set((0u32, 0u32), true)
+        => (Ok(()), Grid8::from([1]))
+    );
+
+    test_try_mutation!(
+        set_num_point_ok: Grid8::EMPTY
+        => set(Point::new(0u32, 0u32), true)
+        => (Ok(()), Grid8::from([1]))
+    );
+
+    test_try_mutation!(
+        set_num_point_err: Grid8::EMPTY
+        => set(Point::new(u32::MAX, 0u32), true)
+        => (Err(OutOfBounds), Grid8::EMPTY)
+    );
 }
 
 mod translation {
