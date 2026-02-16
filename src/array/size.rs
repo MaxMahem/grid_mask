@@ -1,4 +1,4 @@
-use crate::err::OutOfBounds;
+use crate::{err::OutOfBounds, num::Size};
 
 /// A bounded width/height pair for an [`ArrayGrid`](crate::array::ArrayGrid).
 ///
@@ -73,6 +73,14 @@ impl<const W: u16, const H: u16> TryFrom<(u16, u16)> for ArraySize<W, H> {
 
     fn try_from((width, height): (u16, u16)) -> Result<Self, Self::Error> {
         Self::new(width, height)
+    }
+}
+
+impl<const W: u16, const H: u16> TryFrom<Size<u16>> for ArraySize<W, H> {
+    type Error = OutOfBounds;
+
+    fn try_from(size: Size<u16>) -> Result<Self, Self::Error> {
+        Self::new(size.width, size.height)
     }
 }
 

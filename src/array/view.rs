@@ -1,74 +1,58 @@
-use std::borrow::{Borrow, BorrowMut};
-use std::ops::Not;
-
 use bitvec::access::BitSafeU64;
 use bitvec::prelude::Lsb0;
 use bitvec::slice::BitSlice;
-use fluent_result::bool::Then;
 
-use crate::array::{ArrayGrid, ArrayPoint, ArrayRect};
 use crate::err::OutOfBounds;
-use crate::num::Point;
+use crate::num::{Point, Rect, Size};
 
 /// A rectangular view over an [`ArrayGrid`].
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ArrayView<G, const W: u16, const H: u16, const WORDS: usize> {
-    grid: G,
-    rect: ArrayRect<W, H>,
+pub struct ArrayView<S> {
+    data: S,
+    data_stride: u16,
+    rect: Rect<Point<u16>, Size<u16>>,
 }
 
 /// An immutable rectangular view over an [`ArrayGrid`].
-pub type ArrayGridView<'a, const W: u16, const H: u16, const WORDS: usize> =
-    ArrayView<&'a ArrayGrid<W, H, WORDS>, W, H, WORDS>;
+pub type ArrayGridView<'a> = ArrayView<&'a BitSlice<u64, Lsb0>>;
 
 /// A mutable rectangular view over an [`ArrayGrid`].
-pub type ArrayGridViewMut<'a, const W: u16, const H: u16, const WORDS: usize> =
-    ArrayView<&'a mut ArrayGrid<W, H, WORDS>, W, H, WORDS>;
+pub type ArrayGridViewMut<'a> = ArrayView<&'a mut BitSlice<BitSafeU64, Lsb0>>;
 
-impl<G, const W: u16, const H: u16, const WORDS: usize> ArrayView<G, W, H, WORDS> {
-    pub(crate) const fn new(grid: G, rect: ArrayRect<W, H>) -> Self {
-        Self { grid, rect }
+impl<S> ArrayView<S> {
+    pub(crate) const fn new(data: S, data_stride: u16, rect: Rect<Point<u16>, Size<u16>>) -> Self {
+        Self { data, data_stride, rect }
     }
 
-    /// Returns the rectangle covered by this view.
+    /// Returns the size/dimensions of this view.
     #[must_use]
-    pub const fn rect(&self) -> ArrayRect<W, H> {
-        self.rect
+    pub const fn size(&self) -> Size<u16> {
+        self.rect.size
     }
 
-    /// Returns the origin point of this view in parent-grid coordinates.
-    #[must_use]
-    pub const fn origin(&self) -> ArrayPoint<W, H> {
-        self.rect.point()
-    }
-
-    fn translate_point(&self, x: u16, y: u16) -> Result<ArrayPoint<W, H>, OutOfBounds> {
-        self.rect
-            .size()
-            .contains(x, y)
-            .not()
-            .then_err(OutOfBounds)
-            .and_then(|()| ArrayPoint::<W, H>::new(self.rect.point.x() + x, self.rect.point.y() + y))
+    const fn translate_point_to_index(&self, point: Point<u16>) -> Result<usize, OutOfBounds> {
+        match point.x < self.rect.size.width && point.y < self.rect.size.height {
+            true => Ok((self.rect.point.y + point.y) as usize * self.data_stride as usize
+                + (self.rect.point.x + point.x) as usize),
+            false => Err(OutOfBounds),
+        }
     }
 }
 
-impl<G, const W: u16, const H: u16, const WORDS: usize> ArrayView<G, W, H, WORDS>
-where
-    G: Borrow<ArrayGrid<W, H, WORDS>>,
-{
+impl ArrayView<&BitSlice<u64, Lsb0>> {
     /// Returns the number of set cells in the view.
     #[must_use]
     pub fn count(&self) -> usize {
         self.rows().map(bitvec::slice::BitSlice::count_ones).sum()
     }
 
-    /// Returns the value of the cell at `x`/`y` using coordinates local to this view.
+    /// Returns the value of the cell at `point` using coordinates local to this view.
     ///
     /// # Errors
     ///
-    /// Returns [`OutOfBounds`] when `x` or `y` are outside of this view.
-    pub fn get(&self, x: u16, y: u16) -> Result<bool, OutOfBounds> {
-        self.translate_point(x, y).map(|point| self.grid.borrow().get(point))
+    /// Returns [`OutOfBounds`] when `point` is outside of this view.
+    pub fn get(&self, point: Point<u16>) -> Result<bool, OutOfBounds> {
+        self.translate_point_to_index(point).map(|idx| self.data[idx])
     }
 
     /// Returns an iterator over all cells in the view.
@@ -78,7 +62,7 @@ where
 
     /// Returns an iterator over the positions of all set cells in the view.
     ///
-    /// The coordinates are local to the view (relative to `(0, 0)`).
+    /// The coordinates are local to the view.
     #[allow(clippy::cast_possible_truncation)]
     pub fn points(&self) -> impl Iterator<Item = Point<u16>> + '_ {
         self.rows().enumerate().flat_map(|(y, row)| row.iter_ones().map(move |x| Point::new(x as u16, y as u16)))
@@ -86,41 +70,42 @@ where
 
     /// Returns an iterator over the positions of all unset cells in the view.
     ///
-    /// The coordinates are local to the view (relative to `(0, 0)`).
+    /// The coordinates are local to the view.
     #[allow(clippy::cast_possible_truncation)]
     pub fn spaces(&self) -> impl Iterator<Item = Point<u16>> + '_ {
         self.rows().enumerate().flat_map(|(y, row)| row.iter_zeros().map(move |x| Point::new(x as u16, y as u16)))
     }
 
-    const W_USZ: usize = W as usize;
-
     /// Returns an iterator over the rows of bits in this view.
     pub(crate) fn rows(&self) -> impl Iterator<Item = &BitSlice<u64, Lsb0>> {
-        let x = self.rect.point.x() as usize;
-        let width = self.rect.size.width() as usize;
+        let x = self.rect.point.x as usize;
+        let width = self.rect.size.width as usize;
 
-        self.grid
-            .borrow()
-            .data
-            .as_bitslice()
-            .chunks(W as usize)
-            .skip(self.rect.point.y() as usize)
-            .take(self.rect.size.height() as usize)
+        self.data
+            .chunks(self.data_stride as usize)
+            .skip(self.rect.point.y as usize)
+            .take(self.rect.size.height as usize)
             .map(move |row| row.get(x..x + width).unwrap())
     }
 }
 
-impl<G, const W: u16, const H: u16, const WORDS: usize> ArrayView<G, W, H, WORDS>
-where
-    G: BorrowMut<ArrayGrid<W, H, WORDS>>,
-{
-    /// Sets the cell at `x`/`y` to `value` using coordinates local to this view.
+impl ArrayView<&mut BitSlice<BitSafeU64, Lsb0>> {
+    /// Returns the current value of the cell at `point` using coordinates local to this view.
     ///
     /// # Errors
     ///
-    /// [`OutOfBounds`] if `x` or `y` are outside of this view.
-    pub fn set(&mut self, x: u16, y: u16, value: bool) -> Result<(), OutOfBounds> {
-        self.translate_point(x, y).map(|point| self.grid.borrow_mut().set(point, value))
+    /// Returns [`OutOfBounds`] when `point` is outside of this view.
+    pub fn get(&self, point: Point<u16>) -> Result<bool, OutOfBounds> {
+        self.translate_point_to_index(point).map(|idx| self.data[idx])
+    }
+
+    /// Sets the cell at `point` to `value` using coordinates local to this view.
+    ///
+    /// # Errors
+    ///
+    /// [`OutOfBounds`] if `point` is outside of this view.
+    pub fn set(&mut self, point: Point<u16>, value: bool) -> Result<(), OutOfBounds> {
+        self.translate_point_to_index(point).map(|idx| self.data.set(idx, value))
     }
 
     /// Fills the view with `value`.
@@ -135,16 +120,13 @@ where
 
     /// Returns an iterator over the rows of bits in this view.
     pub(crate) fn rows_mut(&mut self) -> impl Iterator<Item = &mut BitSlice<BitSafeU64, Lsb0>> {
-        let x = self.rect.point.x() as usize;
-        let width = self.rect.size.width() as usize;
+        let x = self.rect.point.x as usize;
+        let width = self.rect.size.width as usize;
+        let height = self.rect.size.height as usize;
+        let y = self.rect.point.y as usize;
 
-        self.grid
-            .borrow_mut()
-            .data
-            .as_mut_bitslice()
-            .chunks_mut(W as usize)
-            .skip(self.rect.point.y() as usize)
-            .take(self.rect.size.height() as usize)
-            .map(move |row| row.get_mut(x..x + width).unwrap())
+        self.data.chunks_mut(self.data_stride as usize).skip(y).take(height).map(move |row| {
+            row.get_mut(x..x + width).expect("view must be within grid") //
+        })
     }
 }

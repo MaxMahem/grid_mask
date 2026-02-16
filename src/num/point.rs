@@ -1,3 +1,5 @@
+use num_traits::ConstZero;
+
 /// A point in a 2D grid.
 #[derive(
     Debug,
@@ -20,6 +22,11 @@ pub struct Point<X, Y = X> {
     pub x: X,
     /// The y-coordinate.
     pub y: Y,
+}
+
+impl<X: ConstZero, Y: ConstZero> Point<X, Y> {
+    /// The origin `(0, 0)` point.
+    pub const ORIGIN: Self = Self { x: X::ZERO, y: Y::ZERO };
 }
 
 impl<X, Y, UX, UY> PartialEq<(UX, UY)> for Point<X, Y>

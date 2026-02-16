@@ -92,42 +92,42 @@ macro_rules! const_assert {
     };
 }
 
-// /// [`assert!`] that the `test` expression is true, then evaluates and
-// /// returns `then`.
-// ///
-// /// `assert_then!(test => then, msg?)`
-// ///
-// /// # Macro Values
-// ///
-// /// - `test`: The expression to test
-// /// - `then`: The expression to evaluate if `test` is true
-// /// - `msg`: An optional message to print if `test` is false
-// macro_rules! assert_then {
-//     // no message
-//     ($test:expr => $then:expr) => {
-//         {
-//             assert!($test);
-//             $then
-//         }
-//     };
+/// [`assert!`] that the `test` expression is true, then evaluates and
+/// returns `then`.
+///
+/// `assert_then!(test => then, msg?)`
+///
+/// # Macro Values
+///
+/// - `test`: The expression to test
+/// - `then`: The expression to evaluate if `test` is true
+/// - `msg`: An optional message to print if `test` is false
+macro_rules! assert_then {
+    // no message
+    ($test:expr => $then:expr) => {
+        {
+            assert!($test);
+            $then
+        }
+    };
 
-//     // with message
-//     ($test:expr => $then:expr $(, $($msg:tt)+)?) => {
-//         {
-//             assert!($test $(, $($msg)+)?);
-//             $then
-//         }
-//     };
+    // with message
+    ($test:expr => $then:expr $(, $($msg:tt)+)?) => {
+        {
+            assert!($test $(, $($msg)+)?);
+            $then
+        }
+    };
 
-//     ($test:expr => $then:expr $(, $($msg:tt)+)?) => {
-//         {
-//             assert!($test $(, $($msg)+)?);
-//             $then
-//         }
-//     };
-// }
+    ($test:expr => $then:expr $(, $($msg:tt)+)?) => {
+        {
+            assert!($test $(, $($msg)+)?);
+            $then
+        }
+    };
+}
 
-// pub(crate) use assert_then;
+pub(crate) use assert_then;
 pub(crate) use const_assert;
 //pub(crate) use const_assert_then;
 pub(crate) use debug_check_then;

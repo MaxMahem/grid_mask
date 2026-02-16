@@ -24,14 +24,14 @@ mod consts {
     fn dimensions_8() {
         assert_eq!(Grid8::WIDTH.get(), 8);
         assert_eq!(Grid8::HEIGHT.get(), 8);
-        assert_eq!(Grid8::CELL_COUNT, 64);
+        assert_eq!(Grid8::CELLS, 64);
     }
 
     #[test]
     fn dimensions_10() {
         assert_eq!(Grid10::WIDTH.get(), 10);
         assert_eq!(Grid10::HEIGHT.get(), 10);
-        assert_eq!(Grid10::CELL_COUNT, 100);
+        assert_eq!(Grid10::CELLS, 100);
     }
 }
 

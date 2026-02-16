@@ -102,7 +102,7 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
 
 impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for ArrayPoint<W, H> {
     fn from(index: ArrayIndex<W, H>) -> Self {
-        let (x, y) = index.get().div_rem(&Self::W_U32);
+        let (y, x) = index.get().div_rem(&Self::W_U32);
         safe_into!((x, y) => Self)
     }
 }
