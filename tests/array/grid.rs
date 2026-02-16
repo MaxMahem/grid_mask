@@ -9,7 +9,7 @@ type Index8 = ArrayIndex<8, 8>;
 
 const GRID8_1_1: Grid8 = {
     let mut g = Grid8::EMPTY;
-    g.const_update(Point8::const_new::<1, 1>(), true);
+    g.const_set(Point8::const_new::<1, 1>(), true);
     g
 };
 
@@ -59,8 +59,8 @@ mod properties {
 mod mutation {
     use super::*;
 
-    test_mutation!(set_0_0: Grid8::EMPTY => update(Point8::ORIGIN, true) => Grid8::from([1]));
-    test_mutation!(unset_1_1: GRID8_1_1 => update(Point8::new(1, 1)?, false) => Grid8::EMPTY);
+    test_mutation!(set_0_0: Grid8::EMPTY => set(Point8::ORIGIN, true) => Grid8::from([1]));
+    test_mutation!(unset_1_1: GRID8_1_1 => set(Point8::new(1, 1)?, false) => Grid8::EMPTY);
 
     test_mutation!(clear: Grid8::FULL => clear() => Grid8::EMPTY);
     test_mutation!(fill_true: Grid8::EMPTY => fill(true) => Grid8::FULL);
@@ -202,7 +202,7 @@ mod translation {
     macro_rules! test_oob_empty {
         ( $( ($name:ident: $Grid:ty, $vector:expr) ),* $(,)? ) => {
             $(test_mutation!(
-                $name: <$Grid>::FULL => translate_mut($vector) => <$Grid>::EMPTY
+                $name: <$Grid>::FULL => translate($vector) => <$Grid>::EMPTY
             );)*
         };
     }
@@ -224,7 +224,7 @@ mod translation {
     macro_rules! test_max_shift {
         ( $( ($name:ident: $Grid:ty, $vector:expr => $expected:expr) ),* $(,)? ) => {
             $(test_mutation!(
-                $name: <$Grid>::FULL => translate_mut($vector) => <$Grid>::from_iter($expected)
+                $name: <$Grid>::FULL => translate($vector) => <$Grid>::from_iter($expected)
             );)*
         };
     }

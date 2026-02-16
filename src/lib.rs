@@ -18,6 +18,8 @@ pub mod num;
 /// crate Error types.
 pub mod err;
 
-pub use array::{ArrayGrid, ArrayGridView, ArrayIndex, ArrayPoint, ArrayRect, ArraySize, ArrayVector};
+pub use array::{
+    ArrayGrid, ArrayGridView, ArrayGridViewMut, ArrayIndex, ArrayPoint, ArrayRect, ArraySize, ArrayVector,
+};
 pub use grid::{Adjacency, Cardinal, Octile};
 pub use grid::{GridDelta, GridMask, GridPoint, GridRect, GridShape, GridSize, GridVector};

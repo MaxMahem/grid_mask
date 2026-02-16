@@ -15,4 +15,4 @@ pub use point::ArrayPoint;
 pub use rect::ArrayRect;
 pub use size::ArraySize;
 pub use vector::ArrayVector;
-pub use view::ArrayGridView;
+pub use view::{ArrayGridView, ArrayGridViewMut};

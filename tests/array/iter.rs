@@ -25,8 +25,8 @@ const P2: Point8 = Point8::const_new::<0, 3>();
 
 const GRID8_MIXED: Grid8 = {
     let mut grid = Grid8::EMPTY;
-    grid.const_update(P1, true);
-    grid.const_update(P2, true);
+    grid.const_set(P1, true);
+    grid.const_set(P2, true);
     grid
 };
 
@@ -45,8 +45,8 @@ mod spaces {
 
     const GRID8_SPARSE: Grid8 = {
         let mut grid = Grid8::FULL;
-        grid.const_update(P1, false);
-        grid.const_update(P2, false);
+        grid.const_set(P1, false);
+        grid.const_set(P2, false);
         grid
     };
 
