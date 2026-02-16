@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use collect_failable::TryFromIterator;
+// use collect_failable::TryFromIterator;
 use fluent_result::into::IntoResult;
 use tap::{Conv, Pipe};
 
@@ -189,10 +189,10 @@ impl TryFrom<[bool; 64]> for GridShape<Cardinal> {
 //     }
 // }
 
-impl<T: Into<GridMask>, I: IntoIterator<Item = T>, Adj: Adjacency> TryFromIterator<I> for GridShape<Adj> {
-    type Error = Discontiguous;
+// impl<T: Into<GridMask>, I: IntoIterator<Item = T>, Adj: Adjacency> TryFromIterator<I> for GridShape<Adj> {
+//     type Error = Discontiguous;
 
-    fn try_from_iter(iter: I) -> Result<Self, Self::Error> {
-        GridMask::from_iter(iter).try_into()
-    }
-}
+//     fn try_from_iter(iter: I) -> Result<Self, Self::Error> {
+//         GridMask::from_iter(iter).try_into()
+//     }
+// }
