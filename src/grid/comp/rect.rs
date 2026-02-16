@@ -128,8 +128,7 @@ impl GridRect {
 
     /// Translates the rectangle by the given vector.
     ///
-    /// The rectangle can not be "clipped" by the grid boundaries. For clipping
-    /// behavior consider using [`GridShape::translate`].
+    /// The rectangle can not be "clipped" by the grid boundaries.
     ///
     /// # Arguments
     ///

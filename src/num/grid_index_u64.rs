@@ -17,7 +17,7 @@ bounded_integer::bounded_integer! {
 }
 
 impl BitIndexU64 {
-    /// Returns an iterator over all possible values of [`GridIndexU64`].
+    /// Returns an iterator over all possible values of [`BitIndexU64`].
     #[must_use]
     pub const fn all_values() -> BoundedIter<Self> {
         BoundedIter::new()
@@ -99,7 +99,7 @@ impl Bound for BitIndexU64 {
     }
 }
 
-/// An iterator over all possible [`GridIndexU64`] values in a range.
+/// An iterator over all possible [`BitIndexU64`] values in a range.
 pub type BitIndexIter = BoundedIter<BitIndexU64>;
 
 // impl From<GridPos> for BitIndexU64 {

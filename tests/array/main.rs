@@ -2,7 +2,7 @@
 mod macros;
 
 mod grid;
-mod grid_point_arg;
+mod grid_indexer;
 mod index;
 mod iter;
 mod point;

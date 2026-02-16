@@ -1,7 +1,7 @@
-use crate::macros::{test_ctor, test_property};
+use crate::macros::test_self_method;
 
 use grid_mask::err::OutOfBounds;
-use grid_mask::num::{Point, Rect, Size};
+use grid_mask::num::{Point, Size};
 use grid_mask::{ArrayGrid, ArrayPoint, ArrayRect};
 
 type Grid8 = ArrayGrid<8, 8, 1>;
@@ -22,13 +22,13 @@ const SAMPLE_GRID: Grid8 = {
 mod properties {
     use super::*;
 
-    test_property!(rect: SAMPLE_GRID.view(RECT_1_1_2_2) => size() => Size::new(2, 2));
+    test_self_method!(rect: SAMPLE_GRID.view(RECT_1_1_2_2) => size() => Size::new(2, 2));
 
-    test_property!(local_0_0: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(0, 0)) => Ok(true));
-    test_property!(local_1_0: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(1, 0)) => Ok(true));
-    test_property!(local_1_1: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(1, 1)) => Ok(true));
-    test_property!(local_0_1: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(0, 1)) => Ok(false));
-    test_property!(local_oob: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(2, 0)) => Err(OutOfBounds));
+    test_self_method!(local_0_0: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(0, 0)) => Ok(true));
+    test_self_method!(local_1_0: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(1, 0)) => Ok(true));
+    test_self_method!(local_1_1: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(1, 1)) => Ok(true));
+    test_self_method!(local_0_1: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(0, 1)) => Ok(false));
+    test_self_method!(local_oob: SAMPLE_GRID.view(RECT_1_1_2_2) => get(Point::new(2, 0)) => Err(OutOfBounds));
 }
 
 mod mutation {

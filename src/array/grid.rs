@@ -11,9 +11,9 @@ use crate::array::delta::ArrayDelta;
 use crate::err::{OutOfBounds, PatternError};
 use crate::ext::{FoldMut, NotWhitespace, assert_then, safe_into};
 use crate::num::{Point, Rect, SignedMag, Size};
-use crate::{ArrayGridView, ArrayGridViewMut, ArrayIndex, ArrayPoint, ArrayRect, ArrayVector};
+use crate::{ArrayIndex, ArrayPoint, ArrayRect, ArrayVector, GridView, GridViewMut};
 
-use super::{ArrayGridPointArg, Cells, Points, Spaces};
+use super::{Cells, GridIndexer, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
@@ -66,8 +66,8 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// Returns the value of the cell at `point`.
     ///
     /// This method supports two modes of operation:
-    /// - infallible point inputs (for example [`ArrayPoint`] or [`ArrayIndex`]) return `bool`
-    /// - fallible point inputs (for example `(x, y)` tuples) return `Result<bool, OutOfBounds>`
+    /// - infallible point inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `bool`
+    /// - fallible point inputs ([`Point`] or `(x, y)` tuples) return `Result<bool, OutOfBounds>`
     ///
     /// # Arguments
     ///
@@ -91,13 +91,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// assert_eq!(fallible, Ok(true));
     /// ```
     #[must_use]
-    pub fn get<Idx: ArrayGridPointArg<W, H>>(&self, point: Idx) -> Idx::GetOutput {
+    pub fn get<Idx: GridIndexer<W, H>>(&self, point: Idx) -> Idx::GetOutput {
         point.get(self)
     }
 
     /// Returns the value of the cell at `point`.
-    ///
-    /// This is the const-ready, infallible accessor used internally by [`Self::get`].
+    // Todo: Remove once const traits stabilize.
     #[must_use]
     pub const fn const_get(&self, point: ArrayPoint<W, H>) -> bool {
         let (word, bit) = point.to_index().word_and_bit();
@@ -160,37 +159,37 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
 
     /// Returns an immutable rectangular view over the entire grid.
     #[must_use]
-    pub fn as_view(&self) -> ArrayGridView<'_> {
+    pub fn as_view(&self) -> GridView<'_> {
         let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
-        ArrayGridView::new(self.data.as_bitslice(), W, rect)
+        GridView::new(self.data.as_bitslice(), W, rect)
     }
 
     /// Returns a mutable rectangular view over the entire grid.
     #[must_use]
-    pub fn as_view_mut(&mut self) -> ArrayGridViewMut<'_> {
+    pub fn as_view_mut(&mut self) -> GridViewMut<'_> {
         let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
         let bits = self.data.as_mut_bitslice().split_at_mut(0).1;
-        ArrayGridViewMut::new(bits, W, rect)
+        GridViewMut::new(bits, W, rect)
     }
 
     /// Returns an immutable rectangular view into this grid.
     #[must_use]
-    pub fn view(&self, rect: ArrayRect<W, H>) -> ArrayGridView<'_> {
-        ArrayGridView::new(self.bits(), W, Rect::from(rect))
+    pub fn view(&self, rect: ArrayRect<W, H>) -> GridView<'_> {
+        GridView::new(self.bits(), W, Rect::from(rect))
     }
 
     /// Returns a mutable rectangular view into this grid.
     #[must_use]
-    pub fn view_mut(&mut self, rect: ArrayRect<W, H>) -> ArrayGridViewMut<'_> {
+    pub fn view_mut(&mut self, rect: ArrayRect<W, H>) -> GridViewMut<'_> {
         let bits = self.bits_mut().split_at_mut(0).1;
-        ArrayGridViewMut::new(bits, W, Rect::from(rect))
+        GridViewMut::new(bits, W, Rect::from(rect))
     }
 
-    /// Updates the value of the cell at `point`.
+    /// Sets the value of the cell at `point`.
     ///
     /// This method supports two modes of operation:
-    /// - infallible point inputs (for example [`ArrayPoint`] or [`ArrayIndex`]) return `()`
-    /// - fallible point inputs (for example `(x, y)` tuples) return `Result<(), OutOfBounds>`
+    /// - infallible point inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `()`
+    /// - fallible point inputs ([`Point`] or `(x, y)` tuples) return `Result<(), OutOfBounds>`
     ///
     /// # Arguments
     ///
@@ -211,7 +210,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// grid.set((0u16, 0u16), true).unwrap();
     /// assert_eq!(grid.get((0u16, 0u16)), Ok(true));
     /// ```
-    pub fn set<Idx: ArrayGridPointArg<W, H>>(&mut self, point: Idx, value: bool) -> Idx::SetOutput {
+    pub fn set<Idx: GridIndexer<W, H>>(&mut self, point: Idx, value: bool) -> Idx::SetOutput {
         point.set(self, value)
     }
 
@@ -260,13 +259,13 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
 
     /// Returns the rectangle of this grid covered by the `view` with its
     /// origin corner at `at`.
-    fn view_rect(at: ArrayPoint<W, H>, view: &ArrayGridView<'_>) -> Result<ArrayRect<W, H>, OutOfBounds> {
+    fn view_rect(at: ArrayPoint<W, H>, view: &GridView<'_>) -> Result<ArrayRect<W, H>, OutOfBounds> {
         ArrayRect::new(at, view.size())
     }
 
     fn bitwise_op_at<'a>(
         &mut self,
-        other: impl Into<ArrayGridView<'a>>,
+        other: impl Into<GridView<'a>>,
         at: ArrayPoint<W, H>,
         op: impl Fn(&mut BitSlice<BitSafeU64, Lsb0>, &BitSlice<u64, Lsb0>) + Copy,
     ) -> Result<(), OutOfBounds> {
@@ -285,11 +284,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// # Errors
     ///
     /// [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
-    pub fn bitand_at<'a>(
-        &mut self,
-        other: impl Into<ArrayGridView<'a>>,
-        at: ArrayPoint<W, H>,
-    ) -> Result<(), OutOfBounds> {
+    pub fn bitand_at<'a>(&mut self, other: impl Into<GridView<'a>>, at: ArrayPoint<W, H>) -> Result<(), OutOfBounds> {
         self.bitwise_op_at(other, at, |dst, src| *dst &= src)
     }
 
@@ -300,11 +295,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// # Errors
     ///
     /// [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
-    pub fn bitor_at<'a>(
-        &mut self,
-        other: impl Into<ArrayGridView<'a>>,
-        at: ArrayPoint<W, H>,
-    ) -> Result<(), OutOfBounds> {
+    pub fn bitor_at<'a>(&mut self, other: impl Into<GridView<'a>>, at: ArrayPoint<W, H>) -> Result<(), OutOfBounds> {
         self.bitwise_op_at(other, at, |dst, src| *dst |= src)
     }
 
@@ -315,11 +306,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// # Errors
     ///
     /// [`OutOfBounds`] if the `other` grid does not fit within `self` at `at`.
-    pub fn bitxor_at<'a>(
-        &mut self,
-        other: impl Into<ArrayGridView<'a>>,
-        at: ArrayPoint<W, H>,
-    ) -> Result<(), OutOfBounds> {
+    pub fn bitxor_at<'a>(&mut self, other: impl Into<GridView<'a>>, at: ArrayPoint<W, H>) -> Result<(), OutOfBounds> {
         self.bitwise_op_at(other, at, |dst, src| *dst ^= src)
     }
 
@@ -355,7 +342,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     ///
     /// Note: This method provides the closure with the full `[u64]` slice. For grids
     /// where `W * H` is not a multiple of 64, some of the bits in the last element
-    /// are unused (marked by [`Self::UNUSED_TAILING_BITS`]). They will be cleared
+    /// are unused (marked by [`Self::UNUSED_TRAILING_BITS`]). They will be cleared
     /// after the closure returns.
     ///
     /// Consider using [`Self::bits_mut`] for bitwise access to the grid instead.
@@ -450,7 +437,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> FromStr for ArrayGrid<W, H,
     }
 }
 
-impl<'a, const W: u16, const H: u16, const WORDS: usize> From<&'a ArrayGrid<W, H, WORDS>> for ArrayGridView<'a> {
+impl<'a, const W: u16, const H: u16, const WORDS: usize> From<&'a ArrayGrid<W, H, WORDS>> for GridView<'a> {
     fn from(grid: &'a ArrayGrid<W, H, WORDS>) -> Self {
         grid.as_view()
     }

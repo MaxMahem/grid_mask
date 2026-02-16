@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_property};
+use crate::macros::{test_ctor, test_self_method};
 use grid_mask::{ArrayIndex, err::OutOfBounds};
 
 type Index8 = ArrayIndex<8, 8>;
@@ -16,15 +16,15 @@ mod new {
 
 mod get {
     use super::*;
-    test_property!(min: Index8::MIN => get() => 0);
-    test_property!(max: Index8::MAX => get() => 63);
-    test_property!(val: INDEX_10 => get() => 10);
+    test_self_method!(min: Index8::MIN => get() => 0);
+    test_self_method!(max: Index8::MAX => get() => 63);
+    test_self_method!(val: INDEX_10 => get() => 10);
 }
 
 mod eq {
     use super::*;
-    test_property!(eq_min: Index8::MIN => eq(&0) => true);
-    test_property!(eq_max: Index8::MAX => eq(&63) => true);
-    test_property!(eq_val: INDEX_10 => eq(&10) => true);
-    test_property!(ne_val: INDEX_10 => eq(&11) => false);
+    test_self_method!(eq_min: Index8::MIN => eq(&0) => true);
+    test_self_method!(eq_max: Index8::MAX => eq(&63) => true);
+    test_self_method!(eq_val: INDEX_10 => eq(&10) => true);
+    test_self_method!(ne_val: INDEX_10 => eq(&11) => false);
 }

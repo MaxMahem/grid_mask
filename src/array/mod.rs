@@ -1,6 +1,6 @@
 mod delta;
 mod grid;
-mod grid_point_arg;
+mod grid_indexer;
 mod index;
 mod iter;
 mod point;
@@ -10,11 +10,11 @@ mod vector;
 mod view;
 
 pub use grid::ArrayGrid;
-pub use grid_point_arg::ArrayGridPointArg;
+pub use grid_indexer::GridIndexer;
 pub use index::ArrayIndex;
 pub use iter::{Cells, Points, Spaces};
 pub use point::ArrayPoint;
 pub use rect::ArrayRect;
 pub use size::ArraySize;
 pub use vector::ArrayVector;
-pub use view::{ArrayGridView, ArrayGridViewMut, ArrayView};
+pub use view::{BaseGridView, GridView, GridViewMut};

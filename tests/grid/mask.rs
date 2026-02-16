@@ -1,7 +1,7 @@
 use grid_mask::{Cardinal, GridMask, GridPoint, GridVector, Octile};
 use std::str::FromStr;
 
-use crate::macros::{test_ctor, test_iter, test_mutation, test_property};
+use crate::macros::{test_ctor, test_mutation, test_self_method};
 
 test_ctor!(grid_mask_new: u64::from(GridMask::from(12345)) => 12345);
 
@@ -90,27 +90,27 @@ mod set_unset {
 mod get {
     use super::*;
 
-    test_property!(empty: GridMask::EMPTY => get(POINT_4_4.0) => false);
-    test_property!(set: GridMask(1u64 << 36) => get(POINT_4_4.0) => true);
+    test_self_method!(empty: GridMask::EMPTY => get(POINT_4_4.0) => false);
+    test_self_method!(set: GridMask(1u64 << 36) => get(POINT_4_4.0) => true);
 }
 
 mod count {
     use super::*;
 
-    test_property!(empty: GridMask::EMPTY => count() => 0);
-    test_property!(set: MASK_4_4 => count() => 1);
-    test_property!(full: GridMask::FULL => count() => 64);
+    test_self_method!(empty: GridMask::EMPTY => count() => 0);
+    test_self_method!(set: MASK_4_4 => count() => 1);
+    test_self_method!(full: GridMask::FULL => count() => 64);
 }
 
 mod is_empty_is_full {
     use super::*;
 
-    test_property!(empty_is_empty: GridMask::EMPTY => is_empty() => true);
-    test_property!(empty_is_not_full: GridMask::EMPTY => is_full() => false);
-    test_property!(full_is_not_empty: GridMask::FULL => is_empty() => false);
-    test_property!(full_is_full: GridMask::FULL => is_full() => true);
-    test_property!(mixed_is_not_empty: MASK_4_4 => is_empty() => false);
-    test_property!(mixed_is_not_full: MASK_4_4 => is_full() => false);
+    test_self_method!(empty_is_empty: GridMask::EMPTY => is_empty() => true);
+    test_self_method!(empty_is_not_full: GridMask::EMPTY => is_full() => false);
+    test_self_method!(full_is_not_empty: GridMask::FULL => is_empty() => false);
+    test_self_method!(full_is_full: GridMask::FULL => is_full() => true);
+    test_self_method!(mixed_is_not_empty: MASK_4_4 => is_empty() => false);
+    test_self_method!(mixed_is_not_full: MASK_4_4 => is_full() => false);
 }
 
 mod cell_arrays {
@@ -134,9 +134,9 @@ mod cells {
     use super::cell_arrays::*;
     use super::*;
 
-    test_iter!(empty: GridMask::EMPTY => cells() => EMPTY_CELLS);
-    test_iter!(full: GridMask::FULL => cells() => FULL_CELLS);
-    test_iter!(mixed: MIXED_MASK => cells() => MIXED_CELLS);
+    test_ctor!(empty: GridMask::EMPTY.cells().collect::<Vec<_>>() => EMPTY_CELLS);
+    test_ctor!(full: GridMask::FULL.cells().collect::<Vec<_>>() => FULL_CELLS);
+    test_ctor!(mixed: MIXED_MASK.cells().collect::<Vec<_>>() => MIXED_CELLS);
 
     #[test]
     fn test_double_ended() {
@@ -307,7 +307,7 @@ const SPARSE_CORNERS: &str = "
 mod grow {
     macro_rules! test_grow {
         ($direction:ty> $name:ident: $mask:expr => $expected:expr) => {
-            test_property!($name: $mask => grow::<$direction>() => $expected);
+            test_self_method!($name: $mask => grow::<$direction>() => $expected);
         };
     }
 
@@ -336,10 +336,10 @@ mod grow {
 //         use super::super::pattern_data::*;
 //         use super::super::*;
 //
-//         test_property!(empty: GridMask::EMPTY => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::EMPTY);
-//         test_property!(single_point: ORIGIN_POINT_MASK => connected::<Cardinal>(GridPoint::ORIGIN) => ORIGIN_POINT_MASK);
-//         test_property!(full: GridMask::FULL => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::FULL);
-//         test_property!(empty_cell: MIXED_MASK => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::EMPTY);
+//         test_self_method!(empty: GridMask::EMPTY => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::EMPTY);
+//         test_self_method!(single_point: ORIGIN_POINT_MASK => connected::<Cardinal>(GridPoint::ORIGIN) => ORIGIN_POINT_MASK);
+//         test_self_method!(full: GridMask::FULL => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::FULL);
+//         test_self_method!(empty_cell: MIXED_MASK => connected::<Cardinal>(GridPoint::ORIGIN) => GridMask::EMPTY);
 //         // ... more tests ...
 //     }
 //
@@ -348,8 +348,8 @@ mod grow {
 //         use super::super::pattern_data::*;
 //         use super::super::*;
 //
-//         test_property!(empty: GridMask::EMPTY => connected::<Octile>(GridPoint::ORIGIN) => GridMask::EMPTY);
-//         test_property!(full: GridMask::FULL => connected::<Octile>(GridPoint::ORIGIN) => GridMask::FULL);
+//         test_self_method!(empty: GridMask::EMPTY => connected::<Octile>(GridPoint::ORIGIN) => GridMask::EMPTY);
+//         test_self_method!(full: GridMask::FULL => connected::<Octile>(GridPoint::ORIGIN) => GridMask::FULL);
 //         // ... more tests ...
 //     }
 // }
@@ -357,7 +357,7 @@ mod grow {
 mod is_contiguous {
     macro_rules! test_is_contiguous {
         ($direction:ty> $name:ident: $mask:expr => $expected:expr) => {
-            test_property!($name: $mask => is_contiguous::<$direction>() => $expected);
+            test_self_method!($name: $mask => is_contiguous::<$direction>() => $expected);
         };
     }
 
@@ -439,14 +439,14 @@ mod occupied {
     use super::pattern_data::*;
     use super::*;
 
-    test_property!(empty_rows: GridMask::EMPTY => occupied_rows() => 0);
-    test_property!(empty_cols: GridMask::EMPTY => occupied_cols() => 0);
+    test_self_method!(empty_rows: GridMask::EMPTY => occupied_rows() => 0);
+    test_self_method!(empty_cols: GridMask::EMPTY => occupied_cols() => 0);
 
-    test_property!(full_rows: GridMask::FULL => occupied_rows() => 0xFF);
-    test_property!(full_cols: GridMask::FULL => occupied_cols() => 0xFF);
+    test_self_method!(full_rows: GridMask::FULL => occupied_rows() => 0xFF);
+    test_self_method!(full_cols: GridMask::FULL => occupied_cols() => 0xFF);
 
-    test_property!(even_rows: GridMask::from_str(EVEN_ROWS_COLS)? => occupied_rows() => 0b0101_0101);
-    test_property!(even_cols: GridMask::from_str(EVEN_ROWS_COLS)? => occupied_cols() => 0b0101_0101);
+    test_self_method!(even_rows: GridMask::from_str(EVEN_ROWS_COLS)? => occupied_rows() => 0b0101_0101);
+    test_self_method!(even_cols: GridMask::from_str(EVEN_ROWS_COLS)? => occupied_cols() => 0b0101_0101);
 }
 
 mod bounds {
@@ -455,7 +455,7 @@ mod bounds {
 
     macro_rules! test_bounds {
         ($name:ident: $mask:expr => $expected:expr) => {
-            test_property!($name: $mask => bounds() => $expected);
+            test_self_method!($name: $mask => bounds() => $expected);
         };
     }
 

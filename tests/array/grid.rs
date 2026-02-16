@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_mutation, test_property, test_try_mutation};
+use crate::macros::{test_ctor, test_mutation, test_self_method, test_try_mutation};
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::Point;
 use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
@@ -45,16 +45,16 @@ mod from {
 mod properties {
     use super::*;
 
-    test_property!(empty_count: Grid8::EMPTY => count() => 0);
-    test_property!(full_count: Grid8::FULL => count() => 64);
+    test_self_method!(empty_count: Grid8::EMPTY => count() => 0);
+    test_self_method!(full_count: Grid8::FULL => count() => 64);
 
-    test_property!(full_10_count: Grid10::FULL => count() => 100);
+    test_self_method!(full_10_count: Grid10::FULL => count() => 100);
 
     // Grid10 FULL data check:
     // Word 0: u64::MAX (64 bits)
     // Word 1: 36 bits set (100 - 64). (1 << 36) - 1.
     const EXPECTED_FULL_10: [u64; 2] = [u64::MAX, (1u64 << 36) - 1];
-    test_property!(full_10_data: Grid10::FULL => data() => &EXPECTED_FULL_10);
+    test_self_method!(full_10_data: Grid10::FULL => data() => &EXPECTED_FULL_10);
 }
 
 mod mutation {
@@ -80,25 +80,34 @@ mod mutation {
     test_mutation!(negate_10: Grid10::EMPTY => negate() => Grid10::FULL);
 }
 
-mod access {
+mod get {
     use super::*;
 
-    test_property!(get_point: Grid8::FULL => get(Point8::MIN) => true);
-    test_property!(get_index: Grid8::FULL => get(Index8::MIN) => true);
-    test_property!(get_empty: Grid8::EMPTY => get(Index8::MIN) => false);
+    test_self_method!(get_point: Grid8::FULL => get(Point8::MIN) => true);
+    test_self_method!(get_index: Grid8::FULL => get(Index8::MIN) => true);
+    test_self_method!(get_empty: Grid8::EMPTY => get(Index8::MIN) => false);
 
-    test_property!(get_tuple_ok: Grid8::FULL => get((0u16, 0u16)) => Ok(true));
-    test_property!(get_tuple_err: Grid8::FULL => get((8u16, 0u16)) => Err(OutOfBounds));
+    test_self_method!(get_tuple_ok: Grid8::FULL => get((0u16, 0u16)) => Ok(true));
+    test_self_method!(get_tuple_err: Grid8::FULL => get((8u16, 0u16)) => Err(OutOfBounds));
 
-    test_property!(get_tuple_u32_ok: Grid8::FULL => get((0u32, 0u32)) => Ok(true));
-    test_property!(get_tuple_u32_err: Grid8::FULL => get((u32::MAX, 0u32)) => Err(OutOfBounds));
+    test_self_method!(get_tuple_u32_ok: Grid8::FULL => get((0u32, 0u32)) => Ok(true));
+    test_self_method!(get_tuple_u32_err: Grid8::FULL => get((u32::MAX, 0u32)) => Err(OutOfBounds));
 
-    test_property!(get_num_point_ok: Grid8::FULL => get(Point::new(0u32, 0u32)) => Ok(true));
-    test_property!(get_num_point_err: Grid8::FULL => get(Point::new(8u32, 0u32)) => Err(OutOfBounds));
+    test_self_method!(get_num_point_ok: Grid8::FULL => get(Point::new(0u32, 0u32)) => Ok(true));
+    test_self_method!(get_num_point_err: Grid8::FULL => get(Point::new(8u32, 0u32)) => Err(OutOfBounds));
+
+    test_self_method!(get_int_u32_ok: Grid8::FULL => get(0u32) => Ok(true));
+    test_self_method!(get_int_u32_err: Grid8::FULL => get(64u32) => Err(OutOfBounds));
+    test_self_method!(get_int_usize_ok: Grid8::FULL => get(0usize) => Ok(true));
+    test_self_method!(get_int_usize_err: Grid8::FULL => get(64usize) => Err(OutOfBounds));
+}
+
+mod set {
+    use super::*;
 
     test_try_mutation!(
         set_tuple_ok: Grid8::EMPTY
-        => set((0u16, 0u16), true)
+        => set((0u32, 0u32), true)
         => (Ok(()), Grid8::from([1]))
     );
 
@@ -106,12 +115,6 @@ mod access {
         set_tuple_err: Grid8::EMPTY
         => set((8u16, 0u16), true)
         => (Err(OutOfBounds), Grid8::EMPTY)
-    );
-
-    test_try_mutation!(
-        set_tuple_u32_ok: Grid8::EMPTY
-        => set((0u32, 0u32), true)
-        => (Ok(()), Grid8::from([1]))
     );
 
     test_try_mutation!(
@@ -123,6 +126,18 @@ mod access {
     test_try_mutation!(
         set_num_point_err: Grid8::EMPTY
         => set(Point::new(u32::MAX, 0u32), true)
+        => (Err(OutOfBounds), Grid8::EMPTY)
+    );
+
+    test_try_mutation!(
+        set_int_u32_ok: Grid8::EMPTY
+        => set(0u32, true)
+        => (Ok(()), Grid8::from([1]))
+    );
+
+    test_try_mutation!(
+        set_int_u32_err: Grid8::EMPTY
+        => set(64u32, true)
         => (Err(OutOfBounds), Grid8::EMPTY)
     );
 }

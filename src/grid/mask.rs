@@ -1,4 +1,3 @@
-use std::char;
 use std::ops::Range;
 use std::str::FromStr;
 

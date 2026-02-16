@@ -7,7 +7,7 @@ fn main() {
 
     print!("Created coordinates: ");
     t_shape.clone().for_each(|p| print!("{}, ", p));
-    let mask: GridMask = t_shape.collect();
+    let _mask: GridMask = t_shape.collect();
 
     println!();
     // println!("Resulting mask visual:\n{}", mask.visualize('#', '.'));

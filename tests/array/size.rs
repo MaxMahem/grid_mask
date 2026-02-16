@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_property, test_transform};
+use crate::macros::{test_ctor, test_self_method, test_transform};
 use tap::Pipe;
 
 use grid_mask::ArraySize;
@@ -42,8 +42,8 @@ mod const_new {
 mod properties {
     use super::*;
 
-    test_property!(width: SIZE_3_5 => width() => 3);
-    test_property!(height: SIZE_3_5 => height() => 5);
+    test_self_method!(width: SIZE_3_5 => width() => 3);
+    test_self_method!(height: SIZE_3_5 => height() => 5);
 }
 
 mod conversions {

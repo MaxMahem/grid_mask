@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_property};
+use crate::macros::{test_ctor, test_self_method};
 
 use grid_mask::{ArrayGrid, ArrayPoint};
 
@@ -11,13 +11,13 @@ mod cells {
     const EMPTY_CELLS: [bool; 64] = [false; 64];
     const FULL_CELLS: [bool; 64] = [true; 64];
 
-    test_property!(empty: Grid8::EMPTY.cells() => collect::<Vec<_>>() => EMPTY_CELLS);
-    test_property!(full: Grid8::FULL.cells() => collect::<Vec<_>>() => FULL_CELLS);
+    test_self_method!(empty: Grid8::EMPTY.cells() => collect::<Vec<_>>() => EMPTY_CELLS);
+    test_self_method!(full: Grid8::FULL.cells() => collect::<Vec<_>>() => FULL_CELLS);
 
-    test_property!(empty_rev: Grid8::EMPTY.cells().rev() => collect::<Vec<_>>() => EMPTY_CELLS);
-    test_property!(full_rev: Grid8::FULL.cells().rev() => collect::<Vec<_>>() => FULL_CELLS);
+    test_self_method!(empty_rev: Grid8::EMPTY.cells().rev() => collect::<Vec<_>>() => EMPTY_CELLS);
+    test_self_method!(full_rev: Grid8::FULL.cells().rev() => collect::<Vec<_>>() => FULL_CELLS);
 
-    test_property!(size_hint: Grid8::EMPTY.cells() => size_hint() => (64, Some(64)));
+    test_self_method!(size_hint: Grid8::EMPTY.cells() => size_hint() => (64, Some(64)));
 }
 
 const P1: Point8 = Point8::const_new::<0, 1>();
@@ -33,10 +33,10 @@ const GRID8_MIXED: Grid8 = {
 mod points {
     use super::*;
 
-    test_property!(empty: Grid8::EMPTY.points() => collect::<Vec<_>>() => Vec::<Point8>::new());
-    test_property!(mixed: GRID8_MIXED.points() => collect::<Vec<_>>() => [P1, P2]);
-    test_property!(mixed_rev: GRID8_MIXED.points().rev() => collect::<Vec<_>>() => [P2, P1]);
-    test_property!(iter: GRID8_MIXED.iter() => collect::<Vec<_>>() => [P1, P2]);
+    test_self_method!(empty: Grid8::EMPTY.points() => collect::<Vec<_>>() => Vec::<Point8>::new());
+    test_self_method!(mixed: GRID8_MIXED.points() => collect::<Vec<_>>() => [P1, P2]);
+    test_self_method!(mixed_rev: GRID8_MIXED.points().rev() => collect::<Vec<_>>() => [P2, P1]);
+    test_self_method!(iter: GRID8_MIXED.iter() => collect::<Vec<_>>() => [P1, P2]);
     test_ctor!(into_iter: GRID8_MIXED.into_iter().collect::<Vec<_>>() => [P1, P2]);
 }
 
@@ -50,7 +50,7 @@ mod spaces {
         grid
     };
 
-    test_property!(empty: Grid8::FULL.spaces() => collect::<Vec<_>>() => Vec::<Point8>::new());
-    test_property!(sparse: GRID8_SPARSE.spaces() => collect::<Vec<_>>() => [P1, P2]);
-    test_property!(sparse_rev: GRID8_SPARSE.spaces().rev() => collect::<Vec<_>>() => [P2, P1]);
+    test_self_method!(empty: Grid8::FULL.spaces() => collect::<Vec<_>>() => Vec::<Point8>::new());
+    test_self_method!(sparse: GRID8_SPARSE.spaces() => collect::<Vec<_>>() => [P1, P2]);
+    test_self_method!(sparse_rev: GRID8_SPARSE.spaces().rev() => collect::<Vec<_>>() => [P2, P1]);
 }

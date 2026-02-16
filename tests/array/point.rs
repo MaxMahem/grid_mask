@@ -1,6 +1,6 @@
 use tap::Pipe;
 
-use crate::macros::{test_ctor, test_property, test_transform};
+use crate::macros::{test_ctor, test_self_method, test_transform};
 
 use grid_mask::{ArrayIndex, ArrayPoint, err::OutOfBounds};
 
@@ -22,8 +22,8 @@ mod new {
 mod properties {
     use super::*;
 
-    test_property!(x: POINT_3_5 => x() => 3);
-    test_property!(y: POINT_3_5 => y() => 5);
+    test_self_method!(x: POINT_3_5 => x() => 3);
+    test_self_method!(y: POINT_3_5 => y() => 5);
 }
 
 mod into_index {
@@ -65,9 +65,9 @@ mod try_from_tuple {
 mod tuple_eq {
     use super::*;
 
-    test_property!(eq_point: POINT_3_5 => eq(&(3u16, 5u16)) => true);
-    test_property!(eq_origin: Point8::ORIGIN => eq(&(0u16, 0u16)) => true);
-    test_property!(eq_max: Point8::MAX => eq(&(7u16, 7u16)) => true);
-    test_property!(ne_point_x: POINT_3_5 => eq(&(3u16, 4u16)) => false);
-    test_property!(ne_point_y: POINT_3_5 => eq(&(5u16, 3u16)) => false);
+    test_self_method!(eq_point: POINT_3_5 => eq(&(3u16, 5u16)) => true);
+    test_self_method!(eq_origin: Point8::ORIGIN => eq(&(0u16, 0u16)) => true);
+    test_self_method!(eq_max: Point8::MAX => eq(&(7u16, 7u16)) => true);
+    test_self_method!(ne_point_x: POINT_3_5 => eq(&(3u16, 4u16)) => false);
+    test_self_method!(ne_point_y: POINT_3_5 => eq(&(5u16, 3u16)) => false);
 }

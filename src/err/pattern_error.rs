@@ -1,7 +1,6 @@
 use crate::err::Discontiguous;
 
-/// Errors parsing a [`str`] pattern into a [`GridMask`](crate::GridMask) or
-/// [`ArrayGrid`](crate::ArrayGrid).
+/// Errors parsing a [`str`] pattern into a grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum PatternError {
     /// The pattern contains more characters than expected.

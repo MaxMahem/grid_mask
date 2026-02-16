@@ -1,5 +1,5 @@
 #[sealed::sealed]
-/// An extension trait for [`Iterator`] that provides a [`fold_mut`] method.
+/// An extension trait for [`Iterator`] that provides a [`Self::fold_mut`] method.
 pub trait FoldMut: Iterator {
     /// Folds the iterator via the accumulator, `f` which should mutate the
     /// starting state, `acc`, then return the final `acc` state.

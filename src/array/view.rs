@@ -5,21 +5,21 @@ use bitvec::slice::BitSlice;
 use crate::err::OutOfBounds;
 use crate::num::{Point, Rect, Size};
 
-/// A rectangular view over an [`ArrayGrid`].
+/// A borrowed view over an [`ArrayGrid`](struct@crate::ArrayGrid).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ArrayView<S> {
+pub struct BaseGridView<S> {
     data: S,
     data_stride: u16,
     rect: Rect<Point<u16>, Size<u16>>,
 }
 
-/// An immutable rectangular view over an [`ArrayGrid`].
-pub type ArrayGridView<'a> = ArrayView<&'a BitSlice<u64, Lsb0>>;
+/// An immutable view over an [`ArrayGrid`](struct@crate::ArrayGrid).
+pub type GridView<'a> = BaseGridView<&'a BitSlice<u64, Lsb0>>;
 
-/// A mutable rectangular view over an [`ArrayGrid`].
-pub type ArrayGridViewMut<'a> = ArrayView<&'a mut BitSlice<BitSafeU64, Lsb0>>;
+/// A mutable view over an [`ArrayGrid`](struct@crate::ArrayGrid).
+pub type GridViewMut<'a> = BaseGridView<&'a mut BitSlice<BitSafeU64, Lsb0>>;
 
-impl<S> ArrayView<S> {
+impl<S> BaseGridView<S> {
     pub(crate) const fn new(data: S, data_stride: u16, rect: Rect<Point<u16>, Size<u16>>) -> Self {
         Self { data, data_stride, rect }
     }
@@ -39,7 +39,7 @@ impl<S> ArrayView<S> {
     }
 }
 
-impl ArrayView<&BitSlice<u64, Lsb0>> {
+impl BaseGridView<&BitSlice<u64, Lsb0>> {
     /// Returns the number of set cells in the view.
     #[must_use]
     pub fn count(&self) -> usize {
@@ -89,7 +89,7 @@ impl ArrayView<&BitSlice<u64, Lsb0>> {
     }
 }
 
-impl ArrayView<&mut BitSlice<BitSafeU64, Lsb0>> {
+impl BaseGridView<&mut BitSlice<BitSafeU64, Lsb0>> {
     /// Returns the current value of the cell at `point` using coordinates local to this view.
     ///
     /// # Errors

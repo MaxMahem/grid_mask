@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_property, test_transform};
+use crate::macros::{test_ctor, test_self_method, test_transform};
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::{ArrayPoint, ArrayRect, ArraySize};
@@ -38,14 +38,14 @@ mod const_new {
 mod properties {
     use super::*;
 
-    test_property!(point: RECT_1_2_3_4 => point() => POINT_1_2);
-    test_property!(size: RECT_1_2_3_4 => size() => SIZE_3_4);
+    test_self_method!(point: RECT_1_2_3_4 => point() => POINT_1_2);
+    test_self_method!(size: RECT_1_2_3_4 => size() => SIZE_3_4);
 
-    test_property!(contains_origin: RECT_1_2_3_4 => contains(Point8::const_new::<1, 2>()) => true);
-    test_property!(contains_bottom_right: RECT_1_2_3_4 => contains(Point8::const_new::<3, 5>()) => true);
-    test_property!(contains_left_out: RECT_1_2_3_4 => contains(Point8::const_new::<0, 2>()) => false);
-    test_property!(contains_right_out: RECT_1_2_3_4 => contains(Point8::const_new::<4, 2>()) => false);
-    test_property!(contains_bottom_out: RECT_1_2_3_4 => contains(Point8::const_new::<1, 6>()) => false);
+    test_self_method!(contains_origin: RECT_1_2_3_4 => contains(Point8::const_new::<1, 2>()) => true);
+    test_self_method!(contains_bottom_right: RECT_1_2_3_4 => contains(Point8::const_new::<3, 5>()) => true);
+    test_self_method!(contains_left_out: RECT_1_2_3_4 => contains(Point8::const_new::<0, 2>()) => false);
+    test_self_method!(contains_right_out: RECT_1_2_3_4 => contains(Point8::const_new::<4, 2>()) => false);
+    test_self_method!(contains_bottom_out: RECT_1_2_3_4 => contains(Point8::const_new::<1, 6>()) => false);
 }
 
 mod conversions {

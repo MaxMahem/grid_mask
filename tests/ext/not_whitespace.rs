@@ -1,5 +1,5 @@
-use crate::macros::test_property;
+use crate::macros::test_self_method;
 use grid_mask::ext::NotWhitespace;
 
-test_property!(pass: 'a' => is_not_whitespace() => true);
-test_property!(fail: ' ' => is_not_whitespace() => false);
+test_self_method!(pass: 'a' => is_not_whitespace() => true);
+test_self_method!(fail: ' ' => is_not_whitespace() => false);
