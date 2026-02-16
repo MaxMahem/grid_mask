@@ -15,13 +15,13 @@ fn main() {
     .expect("crosses should be valid");
 
     println!("Original mask (crosses):");
-    let crosses_visualized = crosses.visualize('#', '.');
-    println!("{crosses_visualized}");
+    // let crosses_visualized = crosses.visualize('#', '.');
+    // println!("{crosses_visualized}");
 
     let grown_crosses = crosses.grow::<Cardinal>();
 
     println!("Grown mask:");
-    println!("{grown}", grown = grown_crosses.visualize('#', '.'));
+    // println!("{grown}", grown = grown_crosses.visualize('#', '.'));
 
     println!("Target mask (diamonds):");
 
@@ -38,7 +38,7 @@ fn main() {
     .parse()
     .expect("diamonds should be valid");
 
-    println!("{}", diamonds.visualize('#', '.'));
+    // println!("{}", diamonds.visualize('#', '.'));
 
     assert_eq!(grown_crosses, diamonds, "crosses should grow to diamonds");
     println!("Assertion passed: grown crosses match diamonds.");

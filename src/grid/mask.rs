@@ -382,24 +382,24 @@ impl GridMask {
         BitIndexU64::from_first_set(self.0).is_some_and(|seed| self.contiguous::<A>(seed) == *self)
     }
 
-    /// Return a [`Display`](std::fmt::Display) implementation that visualizes the mask.
-    ///
-    /// # Arguments
-    ///
-    /// * `set` - The character to use for set cells.
-    /// * `unset` - The character to use for unset cells.
-    #[must_use]
-    pub fn visualize(&self, set: char, unset: char) -> impl std::fmt::Display + '_ {
-        let map_char = move |is_set: bool| if is_set { set } else { unset };
-        std::fmt::from_fn(move |f| {
-            self.cells().map(map_char).enumerate().try_for_each(|(i, c)| {
-                match (i + 1) % (Self::ROWS.conv::<usize>()) == 0 {
-                    true => writeln!(f, "{c}"),
-                    false => write!(f, "{c}"),
-                }
-            })
-        })
-    }
+    // /// Return a [`Display`](std::fmt::Display) implementation that visualizes the mask.
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `set` - The character to use for set cells.
+    // /// * `unset` - The character to use for unset cells.
+    // #[must_use]
+    // pub fn visualize(&self, set: char, unset: char) -> impl std::fmt::Display + '_ {
+    //     let map_char = move |is_set: bool| if is_set { set } else { unset };
+    //     std::fmt::from_fn(move |f| {
+    //         self.cells().map(map_char).enumerate().try_for_each(|(i, c)| {
+    //             match (i + 1) % (Self::ROWS.conv::<usize>()) == 0 {
+    //                 true => writeln!(f, "{c}"),
+    //                 false => write!(f, "{c}"),
+    //             }
+    //         })
+    //     })
+    // }
 }
 
 // impl From<GridMask> for u64 {

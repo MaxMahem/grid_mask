@@ -10,5 +10,5 @@ fn main() {
     let mask: GridMask = t_shape.collect();
 
     println!();
-    println!("Resulting mask visual:\n{}", mask.visualize('#', '.'));
+    // println!("Resulting mask visual:\n{}", mask.visualize('#', '.'));
 }
