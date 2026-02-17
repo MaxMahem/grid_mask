@@ -26,9 +26,9 @@ use crate::ext::{MapTuple, const_assert};
     Ord,
     Hash,
     derive_more::Display,
-    derive_more::From,
     derive_more::Into,
 )]
+#[into(ref(u32), owned(u32), owned(u64))]
 pub struct ArrayIndex<const W: u16, const H: u16>(u32);
 
 impl<const W: u16, const H: u16> ArrayIndex<W, H> {
@@ -99,6 +99,12 @@ impl<const W: u16, const H: u16> From<ArrayPoint<W, H>> for ArrayIndex<W, H> {
             .map_into::<u32, u32>()
             .pipe(|(x, y)| y * Self::W_U32 + x)
             .pipe(Self)
+    }
+}
+
+impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for usize {
+    fn from(index: ArrayIndex<W, H>) -> Self {
+        index.0 as Self
     }
 }
 

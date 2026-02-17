@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use bitvec::access::BitSafeU64;
 use bitvec::prelude::{BitArray, BitSlice, Lsb0};
+use bitvec::ptr::{BitRef, Mut};
 use fluent_result::into::IntoResult;
 use tap::Conv;
 
@@ -12,7 +13,7 @@ use crate::ext::{FoldMut, NotWhitespace, assert_then, safe_into};
 use crate::num::{Point, Rect, SignedMag, Size};
 use crate::{ArrayIndex, ArrayPoint, ArrayRect, ArrayVector, GridView, GridViewMut};
 
-use super::{Cells, GridGetIndex, GridSetIndex, Points, Spaces};
+use super::{Cells, GridGetIndex, GridGetMutIndex, GridSetIndex, Points, Spaces};
 
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
@@ -168,7 +169,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         self.data.data[word] & (1u64 << bit) != 0
     }
 
-    pub(crate) fn get_mut_ref(&mut self, index: ArrayIndex<W, H>) -> bitvec::ptr::BitRef<'_, bitvec::ptr::Mut, u64> {
+    pub(crate) fn get_mut_ref(&mut self, index: ArrayIndex<W, H>) -> BitRef<'_, Mut, u64> {
         let index = index.get() as usize;
         unsafe { self.data.get_unchecked_mut(index) }
     }
@@ -294,6 +295,22 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// ```
     pub fn set<IDX: GridSetIndex<Self>>(&mut self, indexer: IDX, value: bool) -> IDX::SetOutput {
         indexer.set(self, value)
+    }
+
+    /// Gets a mutable reference to the cell(s) identified by `index`.
+    ///
+    /// The behavior and return type of this method depend on the type of `IDX`.
+    ///
+    /// - Infallible single-cell indexer ([`ArrayIndex`], [`ArrayPoint`]):
+    ///   Returns a mutable reference to the bit ([`BitRef<Mut, u64>`])
+    /// - Fallible single-cell indexer ([`Point`], `(x, y)` tuples, integer indices):
+    ///   Tries to get a mutable reference ([`Result<BitRef<Mut, u64>, OutOfBounds>`])
+    /// - Infallible region indexer ([`ArrayRect`]):
+    ///   Returns a mutable borrowed view of the grid ([`GridViewMut<'_>`])
+    /// - Fallible region indexer ([`Rect`]):
+    ///   Tries to get a mutable borrowed view ([`Result<GridViewMut<'_>, OutOfBounds>`])
+    pub fn get_mut<IDX: GridGetMutIndex<Self>>(&mut self, indexer: IDX) -> IDX::GetMutOutput<'_> {
+        indexer.get_mut(self)
     }
 
     /// Updates the cell at `index` to `value`.

@@ -7,6 +7,7 @@ mod index;
 mod iter;
 mod point;
 
+mod grid_get_mut;
 mod rect;
 mod size;
 mod view;

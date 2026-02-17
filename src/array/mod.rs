@@ -12,7 +12,7 @@ mod view;
 
 pub use grid::ArrayGrid;
 pub use index::ArrayIndex;
-pub use indexer::{GridGetIndex, GridSetIndex};
+pub use indexer::{GridGetIndex, GridGetMutIndex, GridSetIndex};
 pub use iter::{Cells, Points, Spaces};
 pub use point::ArrayPoint;
 pub use rect::ArrayRect;

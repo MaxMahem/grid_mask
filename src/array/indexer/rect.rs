@@ -1,9 +1,9 @@
 use crate::ArrayGrid;
 use crate::err::OutOfBounds;
 use crate::num::{Point, Rect, Size};
-use crate::{ArrayPoint, ArrayRect, ArraySize, GridView};
+use crate::{ArrayPoint, ArrayRect, ArraySize, GridView, GridViewMut};
 
-use crate::array::indexer::traits::GridGetIndex;
+use crate::array::indexer::traits::{GridGetIndex, GridGetMutIndex};
 
 // --- ArrayRect ---
 
@@ -16,6 +16,18 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
 
     fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         target.view(self)
+    }
+}
+
+/// Implementation of [`GridGetMutIndex`] for [`ArrayRect`] (infallible mutable view)
+impl<const W: u16, const H: u16, const WORDS: usize> GridGetMutIndex<ArrayGrid<W, H, WORDS>> for ArrayRect<W, H> {
+    type GetMutOutput<'a>
+        = GridViewMut<'a>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
+
+    fn get_mut(self, target: &mut ArrayGrid<W, H, WORDS>) -> Self::GetMutOutput<'_> {
+        target.view_mut(self)
     }
 }
 
@@ -45,6 +57,33 @@ where
         let size = ArraySize::new(width, height)?;
 
         ArrayRect::new(point, size).map(|rect| target.view(rect))
+    }
+}
+
+/// Implementation of [`GridGetMutIndex`] for [`Rect<P, S>`] on [`ArrayGrid`] (fallible mutable view)
+impl<PX, PY, SW, SH, const W: u16, const H: u16, const WORDS: usize> GridGetMutIndex<ArrayGrid<W, H, WORDS>>
+    for Rect<Point<PX, PY>, Size<SW, SH>>
+where
+    PX: TryInto<u16> + Copy,
+    PY: TryInto<u16> + Copy,
+    SW: TryInto<u16> + Copy,
+    SH: TryInto<u16> + Copy,
+{
+    type GetMutOutput<'a>
+        = Result<GridViewMut<'a>, OutOfBounds>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
+
+    fn get_mut(self, target: &mut ArrayGrid<W, H, WORDS>) -> Self::GetMutOutput<'_> {
+        let x = self.point.x.try_into().map_err(OutOfBounds::from)?;
+        let y = self.point.y.try_into().map_err(OutOfBounds::from)?;
+        let width = self.size.width.try_into().map_err(OutOfBounds::from)?;
+        let height = self.size.height.try_into().map_err(OutOfBounds::from)?;
+
+        let point = ArrayPoint::new(x, y)?;
+        let size = ArraySize::new(width, height)?;
+
+        ArrayRect::new(point, size).map(|rect| target.view_mut(rect))
     }
 }
 

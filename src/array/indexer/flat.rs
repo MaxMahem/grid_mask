@@ -1,8 +1,9 @@
+use bitvec::ptr::{BitRef, Mut};
+
 use crate::ArrayGrid;
+use crate::array::indexer::traits::{GridGetIndex, GridGetMutIndex, GridSetIndex};
 use crate::err::OutOfBounds;
 use crate::{ArrayIndex, GridView, GridViewMut};
-
-use crate::array::indexer::traits::{GridGetIndex, GridSetIndex};
 
 macro_rules! impl_grid_indexer_for_int {
     ($($t:ty),*) => {
@@ -12,6 +13,17 @@ macro_rules! impl_grid_indexer_for_int {
 
                 fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
                     ArrayIndex::<W, H>::try_new(self).map(|i| target.const_get(i))
+                }
+            }
+
+            impl<const W: u16, const H: u16, const WORDS: usize> GridGetMutIndex<ArrayGrid<W, H, WORDS>> for $t {
+                type GetMutOutput<'a>
+                    = Result<BitRef<'a, Mut, u64>, OutOfBounds>
+                where
+                    ArrayGrid<W, H, WORDS>: 'a;
+
+                fn get_mut(self, target: &mut ArrayGrid<W, H, WORDS>) -> Self::GetMutOutput<'_> {
+                    ArrayIndex::<W, H>::try_new(self).map(Into::into).map(|i: usize| unsafe { target.data.get_unchecked_mut(i) })
                 }
             }
 
