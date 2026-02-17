@@ -60,7 +60,7 @@ impl BaseGridView<&BitSlice<u64, Lsb0>> {
     /// # Errors
     ///
     /// Returns [`OutOfBounds`] when `point` is outside of this view.
-    pub fn get<IDX: GridGetIndex<Self>>(&self, index: IDX) -> IDX::GetOutput {
+    pub fn get<IDX: GridGetIndex<Self>>(&self, index: IDX) -> IDX::GetOutput<'_> {
         index.get(self)
     }
 
@@ -112,7 +112,7 @@ impl BaseGridView<&mut BitSlice<BitSafeU64, Lsb0>> {
     /// # Errors
     ///
     /// Returns [`OutOfBounds`] when `point` is outside of this view.
-    pub fn get<IDX: GridGetIndex<Self>>(&self, index: IDX) -> IDX::GetOutput {
+    pub fn get<IDX: GridGetIndex<Self>>(&self, index: IDX) -> IDX::GetOutput<'_> {
         index.get(self)
     }
 
@@ -158,36 +158,68 @@ impl BaseGridView<&mut BitSlice<BitSafeU64, Lsb0>> {
 
 /// Implementation of [`GridIndexGet`] for [`GridView`] (immutable view)
 impl<'a> GridGetIndex<GridView<'a>> for Point<u16> {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridView<'a>: 'b;
 
-    fn get(self, target: &GridView<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridView<'a>) -> Self::GetOutput<'b> {
         target.translate_point_to_index(self).map(|idx| target.data[idx])
     }
 }
 
 /// Implementation of [`GridIndexGet`] for [`GridView`] (immutable view)
 impl<'a> GridGetIndex<GridView<'a>> for (u16, u16) {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridView<'a>: 'b;
 
-    fn get(self, target: &GridView<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridView<'a>) -> Self::GetOutput<'b> {
         target.translate_point_to_index(Point::new(self.0, self.1)).map(|idx| target.data[idx])
     }
 }
 
 /// Implementation of [`GridIndexGet`] for [`GridView`] (immutable view)
 impl<'a> GridGetIndex<GridView<'a>> for usize {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridView<'a>: 'b;
 
-    fn get(self, target: &GridView<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridView<'a>) -> Self::GetOutput<'b> {
         target.data.get(self).ok_or(OutOfBounds).map(|b| *b)
+    }
+}
+
+impl<'a> GridGetIndex<GridView<'a>> for Rect<Point<u16>, Size<u16>> {
+    type GetOutput<'b>
+        = Result<GridView<'b>, OutOfBounds>
+    where
+        GridView<'a>: 'b;
+
+    fn get<'b>(self, target: &'b GridView<'a>) -> Self::GetOutput<'b> {
+        if self.size.width == 0
+            || self.size.height == 0
+            || self.point.x + self.size.width > target.rect.size.width
+            || self.point.y + self.size.height > target.rect.size.height
+        {
+            return Err(OutOfBounds);
+        }
+
+        let point = Point::new(target.rect.point.x + self.point.x, target.rect.point.y + self.point.y);
+        Ok(GridView::new(target.data, target.data_stride, Rect::new(point, self.size)))
     }
 }
 
 // Implementations for GridViewMut (mutable view)
 impl<'a> GridGetIndex<GridViewMut<'a>> for Point<u16> {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridViewMut<'a>: 'b;
 
-    fn get(self, target: &GridViewMut<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridViewMut<'a>) -> Self::GetOutput<'b> {
         target.translate_point_to_index(self).map(|idx| target.data[idx])
     }
 }
@@ -201,9 +233,12 @@ impl<'a> GridSetIndex<GridViewMut<'a>> for Point<u16> {
 }
 
 impl<'a> GridGetIndex<GridViewMut<'a>> for (u16, u16) {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridViewMut<'a>: 'b;
 
-    fn get(self, target: &GridViewMut<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridViewMut<'a>) -> Self::GetOutput<'b> {
         target.translate_point_to_index(Point::new(self.0, self.1)).map(|idx| target.data[idx])
     }
 }
@@ -217,10 +252,36 @@ impl<'a> GridSetIndex<GridViewMut<'a>> for (u16, u16) {
 }
 
 impl<'a> GridGetIndex<GridViewMut<'a>> for usize {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'b>
+        = Result<bool, OutOfBounds>
+    where
+        GridViewMut<'a>: 'b;
 
-    fn get(self, target: &GridViewMut<'a>) -> Self::GetOutput {
+    fn get<'b>(self, target: &'b GridViewMut<'a>) -> Self::GetOutput<'b> {
         target.data.get(self).ok_or(OutOfBounds).map(|b| *b)
+    }
+}
+
+impl<'a> GridGetIndex<GridViewMut<'a>> for Rect<Point<u16>, Size<u16>> {
+    type GetOutput<'b>
+        = Result<GridView<'b>, OutOfBounds>
+    where
+        GridViewMut<'a>: 'b;
+
+    fn get<'b>(self, target: &'b GridViewMut<'a>) -> Self::GetOutput<'b> {
+        if self.size.width == 0
+            || self.size.height == 0
+            || self.point.x + self.size.width > target.rect.size.width
+            || self.point.y + self.size.height > target.rect.size.height
+        {
+            return Err(OutOfBounds);
+        }
+
+        let point = Point::new(target.rect.point.x + self.point.x, target.rect.point.y + self.point.y);
+        // SAFETY: `BitSafeU64` is a transparent wrapper over `u64` with identical bit-level layout.
+        let data: &BitSlice<u64, Lsb0> =
+            unsafe { &*(target.data as *const BitSlice<BitSafeU64, Lsb0> as *const BitSlice<u64, Lsb0>) };
+        Ok(GridView::new(data, target.data_stride, Rect::new(point, self.size)))
     }
 }
 

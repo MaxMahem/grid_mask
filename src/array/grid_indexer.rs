@@ -1,7 +1,7 @@
 use crate::ArrayGrid;
 use crate::err::OutOfBounds;
 use crate::num::Point;
-use crate::{ArrayIndex, ArrayPoint};
+use crate::{ArrayIndex, ArrayPoint, ArrayRect, GridView};
 
 /// Adaptor trait for types that can be used to get a value from a grid `T`.
 ///
@@ -10,10 +10,12 @@ use crate::{ArrayIndex, ArrayPoint};
 /// * `T` - The type of the grid to index.
 pub trait GridGetIndex<T: ?Sized> {
     /// Return type for a get operation.
-    type GetOutput;
+    type GetOutput<'a>
+    where
+        T: 'a;
 
     /// Gets the value at this index in the grid.
-    fn get(self, target: &T) -> Self::GetOutput;
+    fn get<'a>(self, target: &'a T) -> Self::GetOutput<'a>;
 }
 
 /// Adaptor trait for types that can be used to set a value in a grid `T`.
@@ -31,9 +33,12 @@ pub trait GridSetIndex<T: ?Sized>: GridGetIndex<T> {
 
 /// Implementation of [`GridIndexGet`] for [`usize`] (fallible)
 impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>> for usize {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'a>
+        = Result<bool, OutOfBounds>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get(self, grid: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+    fn get<'a>(self, grid: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
         ArrayIndex::<W, H>::try_new(self).map(|i| grid.const_get(i))
     }
 }
@@ -49,9 +54,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridSetIndex<ArrayGrid<W, H
 
 /// Implementation of [`GridIndexGet`] for [`ArrayPoint`] (infallible)
 impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>> for ArrayPoint<W, H> {
-    type GetOutput = bool;
+    type GetOutput<'a>
+        = bool
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
         target.const_get(self.to_index())
     }
 }
@@ -67,9 +75,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridSetIndex<ArrayGrid<W, H
 
 /// Implementation of [`GridIndexGet`] for [`ArrayIndex`] (infallible)
 impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>> for ArrayIndex<W, H> {
-    type GetOutput = bool;
+    type GetOutput<'a>
+        = bool
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
         target.const_get(self)
     }
 }
@@ -89,9 +100,12 @@ where
     N1: TryInto<u16> + Copy,
     N2: TryInto<u16> + Copy,
 {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'a>
+        = Result<bool, OutOfBounds>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
         try_into_array_point::<N1, N2, W, H>(self.0, self.1).map(|p| target.const_get(p.to_index()))
     }
 }
@@ -115,10 +129,39 @@ where
     N1: TryInto<u16> + Copy,
     N2: TryInto<u16> + Copy,
 {
-    type GetOutput = Result<bool, OutOfBounds>;
+    type GetOutput<'a>
+        = Result<bool, OutOfBounds>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
         try_into_array_point::<N1, N2, W, H>(self.x, self.y).map(|p| target.const_get(p.to_index()))
+    }
+}
+
+/// Implementation of [`GridIndexGet`] for [`ArrayRect`] (infallible view)
+impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>> for ArrayRect<W, H> {
+    type GetOutput<'a>
+        = GridView<'a>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
+
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+        target.view(self)
+    }
+}
+
+/// Implementation of [`GridIndexGet`] for [`Rect<Point<u16>, Size<u16>>`] (fallible view)
+impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>>
+    for crate::num::Rect<crate::num::Point<u16>, crate::num::Size<u16>>
+{
+    type GetOutput<'a>
+        = Result<GridView<'a>, OutOfBounds>
+    where
+        ArrayGrid<W, H, WORDS>: 'a;
+
+    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+        ArrayRect::new((self.point.x, self.point.y), (self.size.width, self.size.height)).map(|rect| target.view(rect))
     }
 }
 
@@ -139,9 +182,12 @@ macro_rules! impl_grid_indexer_for_int {
     ($($t:ty),*) => {
         $(
             impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H, WORDS>> for $t {
-                type GetOutput = Result<bool, OutOfBounds>;
+                type GetOutput<'a>
+                    = Result<bool, OutOfBounds>
+                where
+                    ArrayGrid<W, H, WORDS>: 'a;
 
-                fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput {
+                fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
                     ArrayIndex::<W, H>::try_new(self).map(|i| target.const_get(i))
                 }
             }
