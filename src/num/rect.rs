@@ -1,7 +1,7 @@
-use crate::{
-    ArrayRect,
-    num::{Point, Size},
-};
+use std::num::NonZeroU16;
+
+use crate::ArrayRect;
+use crate::num::{Point, Size};
 
 /// A rectangle in a 2D grid.
 #[derive(
@@ -25,8 +25,8 @@ pub struct Rect<P, S = P> {
     pub size: S,
 }
 
-impl<const X: u16, const Y: u16> From<ArrayRect<X, Y>> for Rect<Point<u16, u16>, Size<u16, u16>> {
-    fn from(value: ArrayRect<X, Y>) -> Self {
+impl<const W: u16, const H: u16> From<ArrayRect<W, H>> for Rect<Point<u16>, Size<NonZeroU16>> {
+    fn from(value: ArrayRect<W, H>) -> Self {
         Self {
             point: Point::new(value.point.x(), value.point.y()),
             size: Size::new(value.size.width(), value.size.height()),

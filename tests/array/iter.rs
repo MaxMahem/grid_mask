@@ -1,8 +1,8 @@
 use crate::macros::{test_ctor, test_self_method};
 
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint};
+use grid_mask::{ArrayIndex, ArrayPoint, array_grid};
 
-type Grid8 = ArrayGrid<8, 8, 1>;
+type Grid8 = array_grid!(8, 8);
 type Point8 = ArrayPoint<8, 8>;
 type Index8 = ArrayIndex<8, 8>;
 

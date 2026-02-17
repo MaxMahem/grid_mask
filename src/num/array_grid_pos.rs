@@ -1,4 +1,4 @@
-use crate::{err::OutOfBounds, ext::debug_check_then};
+use crate::err::OutOfBounds;
 
 /// A position in a grid dimension with a fixed maximum size.
 ///
@@ -27,15 +27,15 @@ impl<const MAX: u16> ArrayGridPos<MAX> {
     /// The maximum position.
     pub const MAX: Self = Self(MAX - 1);
 
-    /// Creates a new [`ArrayGridPos`] without checking bounds.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that `val < MAX`.
-    #[must_use]
-    pub const unsafe fn new_unchecked(val: u16) -> Self {
-        debug_check_then!(val < MAX => Self(val), "value out of bounds")
-    }
+    // /// Creates a new [`ArrayGridPos`] without checking bounds.
+    // ///
+    // /// # Safety
+    // ///
+    // /// The caller must ensure that `val < MAX`.
+    // #[must_use]
+    // pub const unsafe fn new_unchecked(val: u16) -> Self {
+    //     debug_check_then!(val < MAX => Self(val), "value out of bounds")
+    // }
 
     /// Creates a new [`ArrayGridPos`].
     ///
@@ -78,7 +78,6 @@ where
 //         $(
 //             impl<const MAX: u16> TryFrom<$t> for ArrayGridPos<MAX> {
 //                 type Error = OutOfBounds;
-
 //                 fn try_from(value: $t) -> Result<Self, Self::Error> {
 //                     u16::try_from(value).map_err(OutOfBounds::new_from).and_then(Self::new)
 //                 }

@@ -33,8 +33,8 @@ impl TryFrom<GridVector> for GridDelta<VecMagU64> {
     type Error = OutOfBounds;
 
     fn try_from(value: GridVector) -> Result<Self, Self::Error> {
-        let x = value.x.try_conv::<VecDimU64>().map(Into::into).map_err(OutOfBounds::new_from)?;
-        let y = value.y.try_conv::<VecDimU64>().map(Into::into).map_err(OutOfBounds::new_from)?;
+        let x = value.x.try_conv::<VecDimU64>().map(Into::into).map_err(OutOfBounds::from)?;
+        let y = value.y.try_conv::<VecDimU64>().map(Into::into).map_err(OutOfBounds::from)?;
         Self { x, y }.into_ok()
     }
 }

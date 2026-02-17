@@ -7,6 +7,7 @@ bounded_integer::bounded_integer! {
     #[repr(u8)]
     pub struct GridPos(0, 7);
 }
+
 impl Bound for GridPos {
     const MIN: Self = Self::MIN;
     const MAX: Self = Self::MAX;

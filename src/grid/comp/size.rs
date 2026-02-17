@@ -94,8 +94,8 @@ impl GridSize {
     /// # }
     /// ```
     pub fn new<W: TryInto<GridLen>, H: TryInto<GridLen>>(width: W, height: H) -> Result<Self, OutOfBounds> {
-        let width = width.try_into().map_err(OutOfBounds::new_from)?;
-        let height = height.try_into().map_err(OutOfBounds::new_from)?;
+        let width = width.try_into().map_err(OutOfBounds::from)?;
+        let height = height.try_into().map_err(OutOfBounds::from)?;
         Self { width, height }.into_ok()
     }
 }

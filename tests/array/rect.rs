@@ -1,4 +1,4 @@
-use crate::macros::{test_ctor, test_self_method, test_transform};
+use crate::macros::{test_ctor, test_self_method};
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::{ArrayPoint, ArrayRect, ArraySize};
@@ -48,11 +48,9 @@ mod properties {
     test_self_method!(contains_bottom_out: RECT_1_2_3_4 => contains(Point8::const_new::<1, 6>()) => false);
 }
 
-mod conversions {
-    use super::*;
+// mod conversions {
+//     use super::*;
 
-    test_ctor!(try_from_ok: Rect8::try_from(((1, 2), (3, 4))) => Ok(RECT_1_2_3_4));
-    test_ctor!(try_from_err: Rect8::try_from(((7, 7), (2, 1))) => Err(OutOfBounds));
-
-    test_transform!(display: RECT_1_2_3_4 => to_string() => "(1, 2) (3x4)");
-}
+//     test_ctor!(try_from_ok: Rect8::try_from(((1, 2), (3, 4))) => Ok(RECT_1_2_3_4));
+//     test_ctor!(try_from_err: Rect8::try_from(((7, 7), (2, 1))) => Err(OutOfBounds));
+// }

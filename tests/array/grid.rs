@@ -1,22 +1,23 @@
-use crate::macros::{test_ctor, test_mutation, test_self_method, test_try_mutation};
-use grid_mask::err::OutOfBounds;
-use grid_mask::num::{Point, Rect, Size};
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
 use std::str::FromStr;
 
-type Grid8 = ArrayGrid<8, 8, 1>;
+use grid_mask::err::OutOfBounds;
+use grid_mask::num::{Point, Rect, Size};
+use grid_mask::{ArrayIndex, ArrayPoint, ArrayVector};
+
+use crate::macros::{test_ctor, test_mutation, test_self_method, test_try_mutation};
+
+type Grid8 = grid_mask::array_grid!(8, 8);
 type Point8 = ArrayPoint<8, 8>;
 type Index8 = ArrayIndex<8, 8>;
 
 const GRID8_1_1: Grid8 = {
     let mut g = Grid8::EMPTY;
-    // (1, 1) -> 9
-    g.const_set(Index8::const_new::<9>(), true);
+    g.const_set(Index8::const_new::<9>(), true); // (1, 1) -> 9
     g
 };
 
 // 10x10 grid needs 100 bits. 100 / 64 = 2 words (ceil).
-type Grid10 = ArrayGrid<10, 10, 2>;
+type Grid10 = grid_mask::array_grid!(10, 10);
 type Point10 = ArrayPoint<10, 10>;
 
 mod consts {
@@ -111,8 +112,8 @@ mod get {
 
     #[test]
     fn get_rect_view_fallible() {
-        let view =
-            Grid8::FULL.get(Rect::new(Point::new(1u16, 1u16), Size::new(2u16, 2u16))).expect("rect should be valid");
+        let rect = Rect::new(Point::new(1, 1), Size::new(2, 2));
+        let view = Grid8::FULL.get(rect).expect("rect should be valid");
         assert_eq!(view.size(), Size::new(2, 2));
         assert_eq!(view.get((1u16, 1u16)), Ok(true));
 
@@ -322,8 +323,8 @@ mod bitwise {
     use super::*;
 
     const POINT8_1_1: Point8 = Point8::const_new::<1, 1>();
-    type Grid9 = ArrayGrid<9, 9, 2>;
-    type Grid11 = ArrayGrid<11, 11, 2>;
+    type Grid9 = grid_mask::array_grid!(9, 9);
+    type Grid11 = grid_mask::array_grid!(11, 11);
     type Point11 = ArrayPoint<11, 11>;
 
     const POINT11_1_1: Point11 = Point11::const_new::<1, 1>();

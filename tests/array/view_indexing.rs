@@ -1,8 +1,8 @@
-use grid_mask::ArrayGrid;
+use grid_mask::array_grid;
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::{Point, Rect, Size};
 
-type Grid4 = ArrayGrid<4, 4, 1>;
+type Grid4 = array_grid!(4, 4);
 
 #[test]
 fn test_view_get() {
@@ -51,18 +51,6 @@ fn test_view_mut_get_set() {
 fn test_view_get_rect() {
     let grid = Grid4::FULL;
     let view = grid.as_view();
-
-    let sub = view.get(Rect::new(Point::new(1u16, 1u16), Size::new(2u16, 2u16))).expect("sub-rect should be valid");
-    assert_eq!(sub.size(), Size::new(2u16, 2u16));
-    assert_eq!(sub.get((1u16, 1u16)), Ok(true));
-
-    assert_eq!(view.get(Rect::new(Point::new(3u16, 3u16), Size::new(2u16, 2u16))), Err(OutOfBounds));
-}
-
-#[test]
-fn test_view_mut_get_rect() {
-    let mut grid = Grid4::FULL;
-    let view = grid.as_view_mut();
 
     let sub = view.get(Rect::new(Point::new(1u16, 1u16), Size::new(2u16, 2u16))).expect("sub-rect should be valid");
     assert_eq!(sub.size(), Size::new(2u16, 2u16));

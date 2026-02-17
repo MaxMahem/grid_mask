@@ -2,9 +2,9 @@ use crate::macros::test_self_method;
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::Point;
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, GridGetIndex, GridSetIndex};
+use grid_mask::{ArrayIndex, ArrayPoint, GridGetIndex, GridSetIndex};
 
-type Grid8 = ArrayGrid<8, 8, 1>;
+type Grid8 = grid_mask::array_grid!(8, 8);
 type Point8 = ArrayPoint<8, 8>;
 type Index8 = ArrayIndex<8, 8>;
 
@@ -39,7 +39,7 @@ mod set {
             fn $id() -> Result<(), Box<dyn std::error::Error>> {
                 let this = $ctor;
                 let mut grid = Grid8::EMPTY;
-                let result = GridIndexSet::set(this, &mut grid, true);
+                let result = GridSetIndex::set(this, &mut grid, true);
                 assert_eq!(result, $result);
                 assert_eq!(grid, $expected);
                 Ok(())

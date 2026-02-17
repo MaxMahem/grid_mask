@@ -2,9 +2,9 @@ use crate::macros::test_self_method;
 
 use grid_mask::err::OutOfBounds;
 use grid_mask::num::{Point, Size};
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayRect};
+use grid_mask::{ArrayIndex, ArrayPoint, ArrayRect, array_grid};
 
-type Grid8 = ArrayGrid<8, 8, 1>;
+type Grid8 = array_grid!(8, 8);
 type Point8 = ArrayPoint<8, 8>;
 type Index8 = ArrayIndex<8, 8>;
 type Rect8 = ArrayRect<8, 8>;

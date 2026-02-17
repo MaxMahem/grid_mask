@@ -58,7 +58,7 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
     ///
     /// [`OutOfBounds`] if the index is out of bounds (>= W * H).
     pub fn try_new<T: TryInto<u32>>(index: T) -> Result<Self, OutOfBounds> {
-        index.try_into().map_err(OutOfBounds::new_from).and_then(Self::new)
+        index.try_into().map_err(OutOfBounds::from).and_then(Self::new)
     }
 
     /// Creates a new [`ArrayIndex`] from a flat index.

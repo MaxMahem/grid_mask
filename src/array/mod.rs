@@ -1,8 +1,9 @@
 mod delta;
 mod grid;
-mod grid_indexer;
 mod index;
+mod indexer;
 mod iter;
+mod macros;
 mod point;
 mod rect;
 mod size;
@@ -10,8 +11,8 @@ mod vector;
 mod view;
 
 pub use grid::ArrayGrid;
-pub use grid_indexer::{GridGetIndex, GridSetIndex};
 pub use index::ArrayIndex;
+pub use indexer::{GridGetIndex, GridSetIndex};
 pub use iter::{Cells, Points, Spaces};
 pub use point::ArrayPoint;
 pub use rect::ArrayRect;

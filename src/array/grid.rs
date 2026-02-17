@@ -20,14 +20,6 @@ pub struct ArrayGrid<const W: u16, const H: u16, const WORDS: usize> {
     pub(crate) data: BitArray<[u64; WORDS], Lsb0>,
 }
 
-/// Helper macro for creating an [`ArrayGrid`] with the correct number of words.
-#[macro_export]
-macro_rules! ArrayGrid {
-    ($W:expr, $H:expr) => {
-        $crate::array::ArrayGrid<$W, $H, { usize::div_ceil($W * $H, u64::BITS as usize) }>
-    };
-}
-
 impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// An empty grid with all bits unset.
     pub const EMPTY: Self = Self { data: BitArray::ZERO };
@@ -62,36 +54,95 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         )
     };
 
-    #[must_use]
-    /// Gets the value of the cell at `index`.
+    /// Gets the cell value(s) identified by `index`.
     ///
-    /// This method supports two modes of operation:
-    /// - infallible indexes (like [`ArrayIndex`] or [`ArrayPoint`]) return `bool`
-    /// - fallible indexes (like [`Point`], `(x, y)` or flat indexes [`u32`])
-    ///   return `Result<bool, OutOfBounds>`
+    /// The behavior and return type of this method depend on the type of `IDX`.
     ///
-    /// # Arguments
+    /// - Infallible single-cell indexer ([`ArrayIndex`], [`ArrayPoint`]):
+    ///   Returns the value of the cell ([`bool`])
+    /// - Fallible single-cell indexer ([`Point`], `(x, y)` tuples, integer indices):
+    ///   Tries to get the value of the cell ([`Result<bool, OutOfBounds>`])
+    /// - Infallible region indexer ([`ArrayRect`]):
+    ///   Returns a borrowed view of the grid ([`GridView<'_>`])
+    /// - Fallible region indexer ([`Rect`]):
+    ///   Tries to get a borrowed view of the grid ([`Result<GridView<'_>, OutOfBounds>`])
     ///
-    /// * `index` - The index of the cell to get.
+    /// ## Arguments
     ///
-    /// # Type Parameters
+    /// * `index` - The index of the cell(s) to get.
     ///
-    /// * `Idx` - Index input type used to address a cell in this grid.
+    /// ## Type Parameters
     ///
-    /// # Examples
+    /// * `IDX` - The type of `index`.
+    ///
+    /// ## Examples
+    ///
+    /// Infallible single-cell access:
     ///
     /// ```rust
-    /// # use grid_mask::{ArrayGrid, ArrayIndex};
-    /// type Grid = ArrayGrid<8, 8, 1>;
+    /// # use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, array_grid};
+    /// let grid = array_grid!(8, 8; [(0, 0), (7, 7)]);
     ///
-    /// let grid = Grid::FULL;
-    /// let infallible = grid.get(ArrayIndex::MIN);
-    /// assert!(infallible);
-    ///
-    /// let fallible = grid.get((0u16, 0u16));
-    /// assert_eq!(fallible, Ok(true));
+    /// assert!(grid.get(ArrayIndex::MAX), "Max (7, 7) should be set");
+    /// assert!(grid.get(ArrayPoint::ORIGIN), "Origin (0, 0) should be set");
     /// ```
-    pub fn get<I: GridGetIndex<Self>>(&self, indexer: I) -> I::GetOutput<'_> {
+    ///
+    /// Fallible single-cell access:
+    ///
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, array_grid};
+    /// # use grid_mask::num::{Point, Rect};
+    /// # use grid_mask::err::OutOfBounds;
+    /// let grid = array_grid!(8, 8; [(1, 1)]);
+    ///
+    /// assert_eq!(grid.get(Point { x: 1, y: 1 }), Ok(true), "(1, 1) should be set");
+    /// assert_eq!(grid.get((1, 1)), Ok(true), "(1, 1) should be set");
+    /// assert_eq!(grid.get(9), Ok(true), "Index 9 (1, 1) should be set");
+    ///
+    /// assert_eq!(grid.get(Point { x: 8, y: 8 }), Err(OutOfBounds), "(8, 8) should be out of bounds");
+    /// assert_eq!(grid.get((8, 8)), Err(OutOfBounds), "(8, 8) should be out of bounds");
+    /// assert_eq!(grid.get(64), Err(OutOfBounds), "Index 64 should be out of bounds");
+    /// ```
+    ///
+    /// Infallible region access:
+    ///
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, ArrayPoint, ArrayRect, array_grid};
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let grid = array_grid!(8, 8; [(0, 0), (0, 1), (1, 0), (1, 1)]);
+    ///
+    /// let rect = ArrayRect::new(ArrayPoint::ORIGIN, (2, 2))?;
+    /// let view = grid.get(rect);
+    ///
+    /// assert_eq!(view.count(), 4, "Rect (0, 0) to (1, 1) should have 4 set cells");
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// Fallible region access:
+    ///
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, array_grid};
+    /// # use grid_mask::err::OutOfBounds;
+    /// # use grid_mask::num::{Point, Rect, Size};
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let grid = array_grid!(8, 8; [(1, 1), (1, 2), (2, 1), (2, 2)]);
+    ///
+    /// let rect = Rect::new(Point::new(1, 1), Size::new(2, 2));
+    /// let result_view = grid.get(rect);
+    ///
+    /// assert!(result_view.is_ok(), "View should be valid");
+    /// assert_eq!(result_view?.count(), 4, "Rect (1, 1) to (2, 2) should have 4 set cells");
+    ///
+    /// let oob_rect = Rect::new(Point::new(1, 1), Size::new(8, 8));
+    /// let result_view = grid.get(oob_rect);
+    ///
+    /// assert_eq!(result_view, Err(OutOfBounds));
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use]
+    pub fn get<IDX: GridGetIndex<Self>>(&self, indexer: IDX) -> IDX::GetOutput<'_> {
         indexer.get(self)
     }
 
@@ -106,10 +157,8 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// # Examples
     ///
     /// ```rust
-    /// # use grid_mask::{ArrayGrid, ArrayIndex};
-    /// type Grid = ArrayGrid<8, 8, 1>;
-    ///
-    /// let grid = Grid::FULL;
+    /// # use grid_mask::{ArrayGrid, ArrayIndex, array_grid};
+    /// let grid = <array_grid!(8, 8)>::FULL;
     /// let value = grid.const_get(ArrayIndex::MIN);
     /// assert!(value);
     /// ```
@@ -117,6 +166,11 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     pub const fn const_get(&self, index: ArrayIndex<W, H>) -> bool {
         let (word, bit) = index.word_and_bit();
         self.data.data[word] & (1u64 << bit) != 0
+    }
+
+    pub(crate) fn get_mut_ref(&mut self, index: ArrayIndex<W, H>) -> bitvec::ptr::BitRef<'_, bitvec::ptr::Mut, u64> {
+        let index = index.get() as usize;
+        unsafe { self.data.get_unchecked_mut(index) }
     }
 
     /// Returns the number of set cells in the grid.
@@ -176,14 +230,14 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// Returns an immutable rectangular view over the entire grid.
     #[must_use]
     pub fn as_view(&self) -> GridView<'_> {
-        let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
+        let rect = Rect::new(Point::ORIGIN, Size::new(Self::WIDTH, Self::HEIGHT));
         GridView::new(self.bits(), W, rect)
     }
 
     /// Returns a mutable rectangular view over the entire grid.
     #[must_use]
     pub fn as_view_mut(&mut self) -> GridViewMut<'_> {
-        let rect = Rect::new(Point::ORIGIN, Size::new(W, H));
+        let rect = Rect::new(Point::ORIGIN, Size::new(Self::WIDTH, Self::HEIGHT));
         let bits = self.bits_mut().split_at_mut(0).1;
         GridViewMut::new(bits, W, rect)
     }
@@ -204,8 +258,8 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// Sets the value of the cell at `index`.
     ///
     /// This method supports two modes of operation:
-    /// - infallible inputs ([`ArrayPoint`] or [`ArrayIndex`]) return `()`
-    /// - fallible inputs ([`Point`] or `(x, y)` tuples) return `Result<(), OutOfBounds>`
+    /// - infallible index ([`ArrayPoint`] or [`ArrayIndex`]): `()`
+    /// - fallible index ([`Point`], `(x, y)` tuples, integer index): `Result<(), OutOfBounds>`
     ///
     /// # Arguments
     ///
@@ -214,19 +268,31 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     ///
     /// # Type Parameters
     ///
-    /// * `Idx` - Index input type used to address a cell in this grid.
+    /// * `IDX` - Index input type used to address a cell in this grid.
     ///
     /// # Examples
     ///
+    /// Infallible index:
     /// ```rust
-    /// # use grid_mask::ArrayGrid;
-    /// type Grid = ArrayGrid<8, 8, 1>;
+    /// # use grid_mask::{ArrayGrid, ArrayPoint, array_grid};
+    /// let mut grid = <array_grid!(8, 8)>::EMPTY;
     ///
-    /// let mut grid = Grid::EMPTY;
-    /// grid.set((0u16, 0u16), true).unwrap();
-    /// assert_eq!(grid.get((0u16, 0u16)), Ok(true));
+    /// grid.set(ArrayPoint::ORIGIN, true);
+    ///
+    /// assert_eq!(grid.get(ArrayPoint::ORIGIN), true);
     /// ```
-    pub fn set<I: GridSetIndex<Self>>(&mut self, indexer: I, value: bool) -> I::SetOutput {
+    ///
+    /// Fallible index:
+    /// ```rust
+    /// # use grid_mask::{ArrayGrid, ArrayPoint, array_grid};
+    /// let mut grid = <array_grid!(8, 8)>::EMPTY;
+    ///
+    /// let result = grid.set((0u16, 0u16), false);
+    ///
+    /// assert!(result.is_ok());
+    /// assert_eq!(grid.get(ArrayPoint::ORIGIN), false);
+    /// ```
+    pub fn set<IDX: GridSetIndex<Self>>(&mut self, indexer: IDX, value: bool) -> IDX::SetOutput {
         indexer.set(self, value)
     }
 
@@ -270,15 +336,6 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         }
     }
 
-    const W_U32: u32 = W as u32;
-    const H_U32: u32 = H as u32;
-
-    /// Returns the rectangle of this grid covered by the `view` with its
-    /// origin corner at `at`.
-    fn view_rect(at: ArrayPoint<W, H>, view: &GridView<'_>) -> Result<ArrayRect<W, H>, OutOfBounds> {
-        ArrayRect::new(at, view.size())
-    }
-
     fn bitwise_op_at<'a>(
         &mut self,
         other: impl Into<GridView<'a>>,
@@ -286,7 +343,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         op: impl Fn(&mut BitSlice<BitSafeU64, Lsb0>, &BitSlice<u64, Lsb0>) + Copy,
     ) -> Result<(), OutOfBounds> {
         let other = other.into();
-        let mut view = Self::view_rect(at, &other).map(|rect| self.view_mut(rect))?;
+        let mut view = ArrayRect::new(at, other.size()).map(|rect| self.view_mut(rect))?;
 
         std::iter::zip(view.rows_mut(), other.rows()).for_each(|(dst_row, src_row)| op(dst_row, src_row));
 

@@ -46,8 +46,8 @@ impl GridRect {
     ///
     /// Returns [`OutOfBounds`] if the rectangle extends beyond the 8x8 grid.
     pub fn new<P: TryInto<GridPoint>, S: TryInto<GridSize>>(point: P, size: S) -> Result<Self, OutOfBounds> {
-        let point = point.try_into().map_err(OutOfBounds::new_from)?;
-        let size = size.try_into().map_err(OutOfBounds::new_from)?;
+        let point = point.try_into().map_err(OutOfBounds::from)?;
+        let size = size.try_into().map_err(OutOfBounds::from)?;
 
         (point.x().get() + size.width.get() > 8).then_err(OutOfBounds)?;
         (point.y().get() + size.height.get() > 8).then_err(OutOfBounds)?;

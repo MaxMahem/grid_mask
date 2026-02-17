@@ -93,8 +93,8 @@ impl GridPoint {
     /// # }
     /// ```
     pub fn try_new<X: TryInto<GridPos>, Y: TryInto<GridPos>>(x: X, y: Y) -> Result<Self, OutOfBounds> {
-        let x = x.try_into().map_err(OutOfBounds::new_from)?;
-        let y = y.try_into().map_err(OutOfBounds::new_from)?;
+        let x = x.try_into().map_err(OutOfBounds::from)?;
+        let y = y.try_into().map_err(OutOfBounds::from)?;
         Self::new(x, y).into_ok()
     }
 

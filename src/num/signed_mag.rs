@@ -38,12 +38,12 @@ impl TryFrom<i32> for SignedMag<NonZeroU16> {
             0 => Ok(Self::Zero),
             1.. => value
                 .try_into()
-                .map_err(OutOfBounds::new_from)
+                .map_err(OutOfBounds::from)
                 .and_then(|n| NonZeroU16::new(n).ok_or(OutOfBounds))
                 .map(Self::Positive),
             ..0 => (-value)
                 .try_into()
-                .map_err(OutOfBounds::new_from)
+                .map_err(OutOfBounds::from)
                 .and_then(|n| NonZeroU16::new(n).ok_or(OutOfBounds))
                 .map(Self::Negative),
         }

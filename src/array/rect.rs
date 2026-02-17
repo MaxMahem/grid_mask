@@ -2,6 +2,13 @@ use crate::array::{ArrayPoint, ArraySize};
 use crate::err::OutOfBounds;
 
 /// A bounded rectangle for an [`ArrayGrid`](crate::array::ArrayGrid).
+///
+/// The rectangle is guaranteed to be entirely within the grid.
+///
+/// # Type Parameters
+///
+/// * `W` - The width of the grid.
+/// * `H` - The height of the grid.
 #[readonly::make]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
 #[display("{point} {size}")]
@@ -22,11 +29,11 @@ impl<const W: u16, const H: u16> ArrayRect<W, H> {
         point: P,
         size: S,
     ) -> Result<Self, OutOfBounds> {
-        let point = point.try_into().map_err(OutOfBounds::new_from)?;
-        let size = size.try_into().map_err(OutOfBounds::new_from)?;
+        let point = point.try_into().map_err(OutOfBounds::from)?;
+        let size = size.try_into().map_err(OutOfBounds::from)?;
 
-        if u32::from(point.x) + u32::from(size.width) > u32::from(W)
-            || u32::from(point.y) + u32::from(size.height) > u32::from(H)
+        if u32::from(point.x()) + u32::from(size.width().get()) > u32::from(W)
+            || u32::from(point.y()) + u32::from(size.height().get()) > u32::from(H)
         {
             return Err(OutOfBounds);
         }
@@ -65,18 +72,26 @@ impl<const W: u16, const H: u16> ArrayRect<W, H> {
     #[must_use]
     pub const fn contains(&self, point: ArrayPoint<W, H>) -> bool {
         point.x() >= self.point.x()
-            && point.x() < self.point.x() + self.size.width()
+            && point.x() < self.point.x() + self.size.width().get()
             && point.y() >= self.point.y()
-            && point.y() < self.point.y() + self.size.height()
+            && point.y() < self.point.y() + self.size.height().get()
     }
 }
 
-impl<const W: u16, const H: u16, P: TryInto<ArrayPoint<W, H>>, S: TryInto<ArraySize<W, H>>> TryFrom<(P, S)>
-    for ArrayRect<W, H>
-{
-    type Error = OutOfBounds;
+// impl<const W: u16, const H: u16, P: TryInto<ArrayPoint<W, H>>, S: TryInto<ArraySize<W, H>>> TryFrom<(P, S)>
+//     for ArrayRect<W, H>
+// where
+//     OutOfBounds: From<P::Error> + From<S::Error>,
+// {
+//     type Error = OutOfBounds;
 
-    fn try_from((point, size): (P, S)) -> Result<Self, Self::Error> {
-        Self::new(point, size)
-    }
-}
+//     fn try_from((point, size): (P, S)) -> Result<Self, Self::Error> {
+//         Self::new(point, size)
+//     }
+// }
+
+// impl<const W: u16, const H: u16> From<ArrayRect<W, H>> for (ArrayPoint<W, H>, ArraySize<W, H>) {
+//     fn from(rect: ArrayRect<W, H>) -> Self {
+//         (rect.point, rect.size)
+//     }
+// }
