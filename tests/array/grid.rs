@@ -1,6 +1,6 @@
 use crate::macros::{test_ctor, test_mutation, test_self_method, test_try_mutation};
 use grid_mask::err::OutOfBounds;
-use grid_mask::num::Point;
+use grid_mask::num::{Point, Rect, Size};
 use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayVector};
 use std::str::FromStr;
 
@@ -101,6 +101,24 @@ mod get {
     test_self_method!(get_int_u32_err: Grid8::FULL => get(64u32) => Err(OutOfBounds));
     test_self_method!(get_int_usize_ok: Grid8::FULL => get(0usize) => Ok(true));
     test_self_method!(get_int_usize_err: Grid8::FULL => get(64usize) => Err(OutOfBounds));
+
+    #[test]
+    fn get_array_rect_view_infallible() {
+        let view = GRID8_1_1.get(grid_mask::ArrayRect::const_new::<1, 1, 2, 2>());
+        assert_eq!(view.size(), Size::new(2, 2));
+        assert_eq!(view.get((0u16, 0u16)), Ok(true));
+    }
+
+    #[test]
+    fn get_rect_view_fallible() {
+        let view =
+            Grid8::FULL.get(Rect::new(Point::new(1u16, 1u16), Size::new(2u16, 2u16))).expect("rect should be valid");
+        assert_eq!(view.size(), Size::new(2, 2));
+        assert_eq!(view.get((1u16, 1u16)), Ok(true));
+
+        let err = Grid8::FULL.get(Rect::new(Point::new(7u16, 7u16), Size::new(2u16, 2u16)));
+        assert_eq!(err, Err(OutOfBounds));
+    }
 }
 
 mod set {

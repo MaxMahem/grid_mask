@@ -91,7 +91,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// let fallible = grid.get((0u16, 0u16));
     /// assert_eq!(fallible, Ok(true));
     /// ```
-    pub fn get<I: GridGetIndex<Self>>(&self, indexer: I) -> I::GetOutput {
+    pub fn get<I: GridGetIndex<Self>>(&self, indexer: I) -> I::GetOutput<'_> {
         indexer.get(self)
     }
 
