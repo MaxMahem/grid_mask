@@ -15,7 +15,7 @@ pub trait GridGetIndex<T: ?Sized> {
         T: 'a;
 
     /// Gets the value at this index in the grid.
-    fn get<'a>(self, target: &'a T) -> Self::GetOutput<'a>;
+    fn get(self, target: &T) -> Self::GetOutput<'_>;
 }
 
 /// Adaptor trait for types that can be used to set a value in a grid `T`.
@@ -38,7 +38,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, grid: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, grid: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         ArrayIndex::<W, H>::try_new(self).map(|i| grid.const_get(i))
     }
 }
@@ -59,7 +59,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         target.const_get(self.to_index())
     }
 }
@@ -80,7 +80,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         target.const_get(self)
     }
 }
@@ -105,7 +105,7 @@ where
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         try_into_array_point::<N1, N2, W, H>(self.0, self.1).map(|p| target.const_get(p.to_index()))
     }
 }
@@ -134,7 +134,7 @@ where
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         try_into_array_point::<N1, N2, W, H>(self.x, self.y).map(|p| target.const_get(p.to_index()))
     }
 }
@@ -146,7 +146,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         target.view(self)
     }
 }
@@ -160,7 +160,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
     where
         ArrayGrid<W, H, WORDS>: 'a;
 
-    fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+    fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
         ArrayRect::new((self.point.x, self.point.y), (self.size.width, self.size.height)).map(|rect| target.view(rect))
     }
 }
@@ -187,7 +187,7 @@ macro_rules! impl_grid_indexer_for_int {
                 where
                     ArrayGrid<W, H, WORDS>: 'a;
 
-                fn get<'a>(self, target: &'a ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'a> {
+                fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
                     ArrayIndex::<W, H>::try_new(self).map(|i| target.const_get(i))
                 }
             }
