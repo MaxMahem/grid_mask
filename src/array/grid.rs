@@ -18,7 +18,7 @@ use super::{Cells, GridGetIndex, GridGetMutIndex, GridSetIndex, Points, Spaces};
 /// A fixed-size bit grid with `W` columns and `H` rows.
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::From, derive_more::Into)]
 pub struct ArrayGrid<const W: u16, const H: u16, const WORDS: usize> {
-    pub(crate) data: BitArray<[u64; WORDS], Lsb0>,
+    data: BitArray<[u64; WORDS], Lsb0>,
 }
 
 impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
@@ -37,12 +37,12 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
     /// The origin point of the grid.
     pub const ORIGIN: ArrayPoint<W, H> = ArrayPoint::ORIGIN;
 
-    /// The width of the grid.
-    pub const WIDTH: NonZeroU16 = NonZeroU16::new(W).expect("Width must be greater than 0");
-    /// The height of the grid.
-    pub const HEIGHT: NonZeroU16 = NonZeroU16::new(H).expect("Height must be greater than 0");
     /// The total number of cells in the grid.
-    pub const CELLS: u32 = W as u32 * H as u32;
+    pub const CELLS: u32 = {
+        assert!(W > 0, "ArrayGrid: W must be > 0");
+        assert!(H > 0, "ArrayGrid: H must be > 0");
+        W as u32 * H as u32
+    };
 
     pub(crate) const CELLS_USZ: usize = Self::CELLS as usize;
 
@@ -169,9 +169,25 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         self.data.data[word] & (1u64 << bit) != 0
     }
 
-    pub(crate) fn get_mut_ref(&mut self, index: ArrayIndex<W, H>) -> BitRef<'_, Mut, u64> {
-        let index = index.get() as usize;
+    pub(crate) fn get_at(&self, index: usize) -> bool {
+        self.data[index]
+    }
+
+    pub(crate) fn set_at(&mut self, index: usize, value: bool) {
+        self.data.set(index, value);
+    }
+
+    pub(crate) fn get_mut_at(&mut self, index: usize) -> BitRef<'_, Mut, u64> {
         unsafe { self.data.get_unchecked_mut(index) }
+    }
+
+    pub(crate) fn view_at(&self, rect: ArrayRect<W, H>) -> GridView<'_> {
+        GridView::new(self.bits(), W, Rect::from(rect))
+    }
+
+    pub(crate) fn mut_view_at(&mut self, rect: ArrayRect<W, H>) -> GridViewMut<'_> {
+        let bits = self.bits_mut().split_at_mut(0).1;
+        GridViewMut::new(bits, W, Rect::from(rect))
     }
 
     /// Returns the number of set cells in the grid.
@@ -228,32 +244,23 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         ArrayRect::<W, H>::const_new::<0, 0, W, H>()
     }
 
+    /// The rectangle covered by this grid.
+    const GRID_RECT: Rect<Point<u16, u16>, Size<NonZeroU16, NonZeroU16>> = {
+        let width = NonZeroU16::new(W).expect("Width must be greater than 0");
+        let height = NonZeroU16::new(H).expect("Height must be greater than 0");
+        Rect::new(Point::ORIGIN, Size::new(width, height))
+    };
+
     /// Returns an immutable rectangular view over the entire grid.
     #[must_use]
     pub fn as_view(&self) -> GridView<'_> {
-        let rect = Rect::new(Point::ORIGIN, Size::new(Self::WIDTH, Self::HEIGHT));
-        GridView::new(self.bits(), W, rect)
+        GridView::new(self.bits(), W, Self::GRID_RECT)
     }
 
     /// Returns a mutable rectangular view over the entire grid.
     #[must_use]
     pub fn as_view_mut(&mut self) -> GridViewMut<'_> {
-        let rect = Rect::new(Point::ORIGIN, Size::new(Self::WIDTH, Self::HEIGHT));
-        let bits = self.bits_mut().split_at_mut(0).1;
-        GridViewMut::new(bits, W, rect)
-    }
-
-    /// Returns an immutable rectangular view into this grid.
-    #[must_use]
-    pub fn view(&self, rect: ArrayRect<W, H>) -> GridView<'_> {
-        GridView::new(self.bits(), W, Rect::from(rect))
-    }
-
-    /// Returns a mutable rectangular view into this grid.
-    #[must_use]
-    pub fn view_mut(&mut self, rect: ArrayRect<W, H>) -> GridViewMut<'_> {
-        let bits = self.bits_mut().split_at_mut(0).1;
-        GridViewMut::new(bits, W, Rect::from(rect))
+        GridViewMut::new(self.bits_mut().split_at_mut(0).1, W, Self::GRID_RECT)
     }
 
     /// Sets the value of the cell at `index`.
@@ -360,7 +367,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> ArrayGrid<W, H, WORDS> {
         op: impl Fn(&mut BitSlice<BitSafeU64, Lsb0>, &BitSlice<u64, Lsb0>) + Copy,
     ) -> Result<(), OutOfBounds> {
         let other = other.into();
-        let mut view = ArrayRect::new(at, other.size()).map(|rect| self.view_mut(rect))?;
+        let mut view = ArrayRect::new(at, other.size()).map(|rect| self.get_mut(rect))?;
 
         std::iter::zip(view.rows_mut(), other.rows()).for_each(|(dst_row, src_row)| op(dst_row, src_row));
 

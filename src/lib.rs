@@ -12,10 +12,10 @@ pub mod ext;
 pub mod array;
 mod grid;
 
-/// crate Number types.
+/// Crate internal number types.
 pub mod num;
 
-/// crate Error types.
+/// Crate internal error types.
 pub mod err;
 
 pub use array::{

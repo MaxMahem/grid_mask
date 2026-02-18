@@ -1,6 +1,6 @@
 use grid_mask::array_grid;
 use grid_mask::num::{Point, Rect, Size};
-use grid_mask::{ArrayGrid, ArrayIndex, ArrayPoint, ArrayRect, GridSetIndex};
+use grid_mask::{ArrayIndex, ArrayPoint, ArrayRect};
 
 type Grid8 = array_grid!(8, 8);
 

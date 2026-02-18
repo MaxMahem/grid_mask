@@ -1,4 +1,4 @@
-/// Helper macro for creating an [`ArrayGrid`] type or instance.
+/// Helper macro for creating an [`ArrayGrid`](crate::array::ArrayGrid) type or instance.
 #[macro_export]
 macro_rules! array_grid {
     // Branch for creating the type
@@ -10,7 +10,8 @@ macro_rules! array_grid {
         {
             let mut grid = <$crate::array::ArrayGrid<$W, $H, { usize::div_ceil($W * $H, u64::BITS as usize) }>>::EMPTY;
             $(
-                let _ = grid.set($p, true);
+                let index = $crate::array::ArrayIndex::<$W, $H>::const_new::<{ let (x, y) = $p; x as u32 + y as u32 * $W as u32 }>();
+                grid.const_set(index, true);
             )*
             grid
         }

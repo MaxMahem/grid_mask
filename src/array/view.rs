@@ -11,7 +11,7 @@ use crate::num::{Point, Rect, Size};
 /// A borrowed view over an [`ArrayGrid`](struct@crate::ArrayGrid).
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct BaseGridView<S> {
-    pub(crate) data: S,
+    data: S,
     data_stride: u16,
     rect: Rect<Point<u16>, Size<NonZeroU16>>,
 }
@@ -40,6 +40,14 @@ impl<S> BaseGridView<S> {
             false => Err(OutOfBounds),
         }
     }
+
+    pub(crate) const fn bits(&self) -> &S {
+        &self.data
+    }
+
+    pub(crate) const fn bits_mut(&mut self) -> &mut S {
+        &mut self.data
+    }
 }
 
 impl GridView<'_> {
@@ -57,6 +65,10 @@ impl GridView<'_> {
         let size = Size::new(width, height);
 
         Ok(Self::new(self.data, self.data_stride, Rect::new(point, size)))
+    }
+
+    pub(crate) fn get_at(&self, index: usize) -> Result<bool, OutOfBounds> {
+        self.data.get(index).as_deref().copied().ok_or(OutOfBounds)
     }
 
     /// Returns the number of set cells in the view.
@@ -117,6 +129,14 @@ impl GridView<'_> {
 }
 
 impl GridViewMut<'_> {
+    pub(crate) fn get_at(&self, index: usize) -> Result<bool, OutOfBounds> {
+        self.data.get(index).as_deref().copied().ok_or(OutOfBounds)
+    }
+
+    pub(crate) fn set_at(&mut self, index: usize, value: bool) -> Result<(), OutOfBounds> {
+        self.data.get_mut(index).map(|mut r| *r = value).ok_or(OutOfBounds)
+    }
+
     /// Returns the value of the cell at `point` using coordinates local to this view.
     ///
     /// # Arguments

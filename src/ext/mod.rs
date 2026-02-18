@@ -12,4 +12,4 @@ pub(crate) use dbg_assert_val::*;
 pub use bounded::{Bound, BoundedIter};
 pub use iter::FoldMut;
 pub use not_whitespace::NotWhitespace;
-pub use tuple::MapTuple;
+pub use tuple::{MapTuple, SwapTuple};

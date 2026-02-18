@@ -15,7 +15,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetIndex<ArrayGrid<W, H
         ArrayGrid<W, H, WORDS>: 'a;
 
     fn get(self, target: &ArrayGrid<W, H, WORDS>) -> Self::GetOutput<'_> {
-        target.view(self)
+        target.view_at(self)
     }
 }
 
@@ -27,7 +27,7 @@ impl<const W: u16, const H: u16, const WORDS: usize> GridGetMutIndex<ArrayGrid<W
         ArrayGrid<W, H, WORDS>: 'a;
 
     fn get_mut(self, target: &mut ArrayGrid<W, H, WORDS>) -> Self::GetMutOutput<'_> {
-        target.view_mut(self)
+        target.mut_view_at(self)
     }
 }
 
@@ -56,7 +56,7 @@ where
         let point = ArrayPoint::new(x, y)?;
         let size = ArraySize::new(width, height)?;
 
-        ArrayRect::new(point, size).map(|rect| target.view(rect))
+        ArrayRect::new(point, size).map(|rect| target.view_at(rect))
     }
 }
 
@@ -83,7 +83,7 @@ where
         let point = ArrayPoint::new(x, y)?;
         let size = ArraySize::new(width, height)?;
 
-        ArrayRect::new(point, size).map(|rect| target.view_mut(rect))
+        ArrayRect::new(point, size).map(|rect| target.mut_view_at(rect))
     }
 }
 

@@ -2,7 +2,7 @@ use tap::Pipe;
 
 use crate::ArrayPoint;
 use crate::err::OutOfBounds;
-use crate::ext::{MapTuple, const_assert};
+use crate::ext::{Bound, MapTuple, const_assert};
 
 // /// A trait for types that can be converted into a flat array index.
 // ///
@@ -36,9 +36,17 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
     pub const MIN: Self = Self(0);
 
     /// The maximum valid index.
-    pub const MAX: Self = Self(W as u32 * H as u32 - 1);
+    pub const MAX: Self = Self(Self::MAX_VAL);
 
     const W_U32: u32 = W as u32;
+    const H_U32: u32 = H as u32;
+
+    /// The maximum valid index.
+    const MAX_VAL: u32 = {
+        assert!(W > 0, "ArrayIndex: W must be > 0");
+        assert!(H > 0, "ArrayIndex: H must be > 0");
+        W as u32 * H as u32 - 1
+    };
 
     /// Creates a new [`ArrayIndex`] from a flat index.
     ///
@@ -46,7 +54,7 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
     ///
     /// [`OutOfBounds`] if the index is out of bounds (>= W * H).
     pub const fn new(index: u32) -> Result<Self, OutOfBounds> {
-        match index >= W as u32 * H as u32 {
+        match index > Self::MAX_VAL {
             true => Err(OutOfBounds),
             false => Ok(Self(index)),
         }
@@ -68,7 +76,7 @@ impl<const W: u16, const H: u16> ArrayIndex<W, H> {
     /// Panics at compile time if the index is out of bounds (>= W * H).
     #[must_use]
     pub const fn const_new<const INDEX: u32>() -> Self {
-        const_assert!(INDEX < W as u32 * H as u32, "index out of bounds W * H");
+        const_assert!(INDEX <= Self::MAX_VAL, "index out of bounds W * H");
         Self(INDEX)
     }
 
@@ -108,7 +116,7 @@ impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for usize {
     }
 }
 
-impl<const W: u16, const H: u16> crate::ext::Bound for ArrayIndex<W, H> {
+impl<const W: u16, const H: u16> Bound for ArrayIndex<W, H> {
     const MIN: Self = Self::MIN;
     const MAX: Self = Self::MAX;
 

@@ -1,8 +1,11 @@
 use bitvec::prelude::Lsb0;
 use bitvec::slice::IterZeros;
+use num_integer::Integer;
 
 use crate::ArrayPoint;
 use crate::array::ArrayGrid;
+
+use crate::ext::SwapTuple;
 
 /// An iterator over all unset cells of an [`ArrayGrid`].
 #[derive(Debug, Clone)]
@@ -12,13 +15,13 @@ pub struct Spaces<'a, const W: u16, const H: u16, const WORDS: usize> {
 
 impl<'a, const W: u16, const H: u16, const WORDS: usize> Spaces<'a, W, H, WORDS> {
     pub(crate) fn new(grid: &'a ArrayGrid<W, H, WORDS>) -> Self {
-        Self { iter: grid.data.as_bitslice()[..ArrayGrid::<W, H, WORDS>::CELLS_USZ].iter_zeros() }
+        Self { iter: grid.bits().iter_zeros() }
     }
 
+    const W_USZ: usize = W as usize;
+
     fn to_point(i: usize) -> ArrayPoint<W, H> {
-        let x = i % W as usize;
-        let y = i / W as usize;
-        (x, y).try_into().expect("index must be within bounds")
+        usize::div_rem(&i, &Self::W_USZ).swap().try_into().expect("index must be within bounds")
     }
 }
 

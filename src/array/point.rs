@@ -91,12 +91,6 @@ impl<const W: u16, const H: u16> ArrayPoint<W, H> {
     pub const fn y(&self) -> u16 {
         self.0.y.get()
     }
-
-    /// Converts the point to an [`ArrayIndex`].
-    #[must_use]
-    pub(crate) const fn to_index(self) -> ArrayIndex<W, H> {
-        ArrayIndex::from_point(self)
-    }
 }
 
 impl<const W: u16, const H: u16> From<ArrayIndex<W, H>> for ArrayPoint<W, H> {

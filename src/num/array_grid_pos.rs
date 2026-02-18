@@ -25,7 +25,10 @@ impl<const MAX: u16> ArrayGridPos<MAX> {
     /// The zero position.
     pub const ZERO: Self = Self(0);
     /// The maximum position.
-    pub const MAX: Self = Self(MAX - 1);
+    pub const MAX: Self = {
+        assert!(MAX > 0, "ArrayGridPos: MAX must be > 0");
+        Self(MAX - 1)
+    };
 
     // /// Creates a new [`ArrayGridPos`] without checking bounds.
     // ///

@@ -1,5 +1,8 @@
 use std::num::NonZeroU16;
 
+use fluent_result::into::IntoResult;
+use tap::Pipe;
+
 use crate::err::OutOfBounds;
 use crate::num::{ArrayGridLen, Size};
 
@@ -22,21 +25,25 @@ impl<const W: u16, const H: u16> ArraySize<W, H> {
     /// The maximum valid size.
     pub const MAX: Self = Self(Size::new(ArrayGridLen::MAX, ArrayGridLen::MAX));
 
-    /// Creates a new [`ArraySize`] from raw [`u16`] dimensions.
+    /// Creates a new [`ArraySize`] from the dimensions `width` and `height`.
+    ///
+    /// # Arguments
+    ///
+    /// - `width`: The width of the grid. Must be in the range `1..=W`.
+    /// - `height`: The height of the grid. Must be in the range `1..=H`.
+    ///
+    /// # Type Parameters
+    ///
+    /// - `N1`: The type of the width.
+    /// - `N2`: The type of the height.
     ///
     /// # Errors
     ///
     /// Returns [`OutOfBounds`] when `width`/`height` are zero or exceed `W`/`H`.
-    pub const fn new(width: u16, height: u16) -> Result<Self, OutOfBounds> {
-        let width = match ArrayGridLen::new(width) {
-            Ok(w) => w,
-            Err(e) => return Err(e),
-        };
-        let height = match ArrayGridLen::new(height) {
-            Ok(h) => h,
-            Err(e) => return Err(e),
-        };
-        Ok(Self(Size::new(width, height)))
+    pub fn new<N1: TryInto<NonZeroU16>, N2: TryInto<NonZeroU16>>(width: N1, height: N2) -> Result<Self, OutOfBounds> {
+        let width = ArrayGridLen::new(width)?;
+        let height = ArrayGridLen::new(height)?;
+        Size::new(width, height).pipe(Self).into_ok()
     }
 
     /// Creates a new [`ArraySize`] from constants.

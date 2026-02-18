@@ -25,9 +25,9 @@ pub struct ArrayGridLen<const MAX: u16>(pub(crate) NonZeroU16);
 
 impl<const MAX: u16> ArrayGridLen<MAX> {
     /// The minimum length.
-    pub const MIN: Self = Self(NonZeroU16::new(1).unwrap());
+    pub const MIN: Self = Self(NonZeroU16::new(1).expect("1 must be > 0"));
     /// The maximum length.
-    pub const MAX: Self = Self(NonZeroU16::new(MAX).unwrap());
+    pub const MAX: Self = Self(NonZeroU16::new(MAX).expect("MAX must be > 0"));
 
     // /// Creates a new [`ArrayGridLen`] without checking bounds.
     // ///
@@ -44,11 +44,10 @@ impl<const MAX: u16> ArrayGridLen<MAX> {
     /// # Errors
     ///
     /// [`OutOfBounds`] if `val == 0` or `val > MAX`.
-    pub const fn new(val: u16) -> Result<Self, OutOfBounds> {
-        match NonZeroU16::new(val) {
-            Some(nz) if val <= MAX => Ok(Self(nz)),
-            _ => Err(OutOfBounds),
-        }
+    pub fn new<T: TryInto<NonZeroU16>>(val: T) -> Result<Self, OutOfBounds> {
+        val.try_into()
+            .map_err(OutOfBounds::from)
+            .and_then(|nz| (nz.get() <= MAX).then_some(Self(nz)).ok_or(OutOfBounds))
     }
 
     /// Creates a new [`ArrayGridLen`] from a constant value.
