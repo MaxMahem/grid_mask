@@ -20,8 +20,44 @@ use crate::num::{BitIndexU64, GridPos};
     derive_more::Into,
     derive_more::Display,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(into = "GridPointSerde"))]
 #[display("({x}, {y})", x = self.x(), y = self.y())]
 pub struct GridPoint(pub BitIndexU64);
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for GridPoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        GridPointSerde::deserialize(deserializer).map(Self::from)
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+enum GridPointSerde {
+    Array(GridPos, GridPos),
+    Object { x: GridPos, y: GridPos },
+}
+
+#[cfg(feature = "serde")]
+impl From<GridPointSerde> for GridPoint {
+    fn from(value: GridPointSerde) -> Self {
+        match value {
+            GridPointSerde::Array(x, y) | GridPointSerde::Object { x, y } => Self::new(x, y),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<GridPoint> for GridPointSerde {
+    fn from(value: GridPoint) -> Self {
+        Self::Array(value.x(), value.y())
+    }
+}
 
 impl GridPoint {
     /// The origin point `(0, 0)`.

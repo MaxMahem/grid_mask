@@ -34,7 +34,34 @@ use crate::{Adjacency, GridDelta, GridPoint, GridRect, GridSize, GridVector};
     derive_more::Not,
     // derive_more::Constructor,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(from = "GridMaskSerde", into = "GridMaskSerde"))]
 pub struct GridMask(pub u64);
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+enum GridMaskSerde {
+    Points(Vec<GridPoint>),
+    Bitmask(u64),
+}
+
+#[cfg(feature = "serde")]
+impl From<GridMaskSerde> for GridMask {
+    fn from(value: GridMaskSerde) -> Self {
+        match value {
+            GridMaskSerde::Bitmask(val) => Self(val),
+            GridMaskSerde::Points(points) => points.into_iter().collect(),
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<GridMask> for GridMaskSerde {
+    fn from(value: GridMask) -> Self {
+        Self::Points(value.points().collect())
+    }
+}
 
 impl GridMask {
     /// An empty mask.

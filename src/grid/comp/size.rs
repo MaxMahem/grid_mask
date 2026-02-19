@@ -5,12 +5,49 @@ use crate::num::GridLen;
 
 /// A size in a 8x8 grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::Display)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(into = "GridSizeSerde"))]
 #[display("({width}x{height})")]
 pub struct GridSize {
     /// The width of the size
     pub width: GridLen,
     /// The height of the size
     pub height: GridLen,
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for GridSize {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        GridSizeSerde::deserialize(deserializer).map(Self::from)
+    }
+}
+
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(untagged)]
+enum GridSizeSerde {
+    Array(GridLen, GridLen),
+    Object { w: GridLen, h: GridLen },
+}
+
+#[cfg(feature = "serde")]
+impl From<GridSizeSerde> for GridSize {
+    fn from(value: GridSizeSerde) -> Self {
+        use GridSizeSerde::{Array, Object};
+        match value {
+            Array(width, height) | Object { w: width, h: height } => Self { width, height },
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl From<GridSize> for GridSizeSerde {
+    fn from(value: GridSize) -> Self {
+        Self::Array(value.width, value.height)
+    }
 }
 
 impl GridSize {

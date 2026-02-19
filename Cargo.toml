@@ -10,9 +10,12 @@ readme = "README.md"
 keywords = ["grid", "mask", "bitboard", "shape"]
 categories = ["data-structures"]
 
+[features]
+serde = ["dep:serde"]
+
 [dependencies]
 bitvec = "1.0.1"
-bounded-integer = { version = "0.6.1", features = ["macro", "std"] }
+bounded-integer = { version = "0.6.1", features = ["macro", "std", "serde1"] }
 # collect_failable = { version = "0.18.0", default-features = false }
 delegate = "0.13.5"
 derive_more = { version = "2.1.1", default-features = false, features = ["add", "add_assign", "constructor", "from", "into", "not", "display", "as_ref", "deref", "mul", "default"] }
@@ -25,3 +28,8 @@ sealed = "0.6.0"
 size_hinter = "0.4.1"
 tap = "1.0.1"
 thiserror = { version = "2.0.18", default-features = false }
+serde = { version = "1.0", features = ["derive"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+grid_mask = { path = ".", features = ["serde"] }
