@@ -17,11 +17,11 @@ use crate::{Adjacency, GridDelta, GridPoint, GridRect, GridSize, GridVector};
 /// An immutable mask of cells on a 8x8 grid.
 #[derive(
     Debug,
+    Default,
     Copy,
     Clone,
     PartialEq,
     Eq,
-    Default,
     Hash,
     derive_more::From,
     derive_more::Into,

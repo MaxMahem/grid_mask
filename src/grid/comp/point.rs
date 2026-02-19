@@ -9,6 +9,7 @@ use crate::num::{BitIndexU64, GridPos};
 /// A point in a 8x8 grid.
 #[derive(
     Debug, // col format
+    Default,
     Clone,
     Copy,
     PartialEq,
